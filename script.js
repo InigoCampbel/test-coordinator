@@ -232,10 +232,10 @@ function saveCurrentFiltersEnhanced() {
         selectedVenues,
         selectedTrainers,
         selectedReached,
-        // Add flags to track if secondary filters have been modified
-        hasSecondaryFilters: (selectedVenues.length !== availableVenues.length) ||
-                           (selectedTrainers.length !== availableTrainers.length) ||
-                           (selectedReached.length !== availableReached.length),
+        // Track if secondary filters have been meaningfully applied
+        hasSecondaryFilters: (selectedVenues.length > 0 && selectedVenues.length < availableVenues.length) ||
+                           (selectedTrainers.length > 0 && selectedTrainers.length < availableTrainers.length) ||
+                           selectedReached.length < 2,
         expiresAt: Date.now() + (2 * 60 * 60 * 1000)
     };
     
@@ -594,9 +594,13 @@ function handleSavedFilters() {
     selectedDates = filterData.selectedDates || selectedDates;
     selectedSessions = filterData.selectedSessions || selectedSessions;
     selectedBlocks = filterData.selectedBlocks || selectedBlocks;
-    selectedVenues = filterData.selectedVenues || [];
-    selectedTrainers = filterData.selectedTrainers || [];
-    selectedReached = filterData.selectedReached || ['Yes', 'No'];
+    
+    // NEW: Only restore secondary filters if they exist and are meaningful
+    if (filterData.hasSecondaryFilters) {
+        selectedVenues = filterData.selectedVenues || [];
+        selectedTrainers = filterData.selectedTrainers || [];
+        selectedReached = filterData.selectedReached || ['Yes', 'No'];
+    }
     
     // Restore UI and apply filters
     restorePrimaryFilterUI();
@@ -604,12 +608,8 @@ function handleSavedFilters() {
     // Apply primary filters and THEN handle secondary filters
     setTimeout(() => {
         applyPrimaryFilters().then(() => {
-            // FIXED: Only restore secondary filters if they were actually saved with selections
-            const hasSecondaryFilters = (selectedVenues.length > 0 && selectedVenues.length < availableVenues.length) ||
-                                      (selectedTrainers.length > 0 && selectedTrainers.length < availableTrainers.length) ||
-                                      selectedReached.length < 2;
-            
-            if (hasSecondaryFilters) {
+            // Only restore and apply secondary filters if they were previously saved with selections
+            if (filterData.hasSecondaryFilters) {
                 // Wait a bit more for secondary filter options to be populated
                 setTimeout(() => {
                     restoreSecondaryFilterUI();
@@ -619,7 +619,6 @@ function handleSavedFilters() {
         });
     }, 100);
 }
-
 async function loadInitialFilterOptions() {
     try {
         showLoading('Loading filter options...');
@@ -776,12 +775,8 @@ function applySecondaryFiltersWithUpdate() {
     // Apply the filters first
     applySecondaryFilters();
     
-    // Then update the UI to reflect any cross-filtering effects
-    setTimeout(() => {
-        populateVenueFilter();
-        populateTrainerFilter();
-        saveCurrentFiltersEnhanced();
-    }, 50);
+    // Then save the current state (this will mark hasSecondaryFilters as true)
+    saveCurrentFiltersEnhanced();
 }
 
 // Filter event listeners
@@ -834,8 +829,7 @@ document.addEventListener('change', function(e) {
             const checkedVenueCount = Array.from(visibleVenueCheckboxes).filter(cb => cb.checked).length;
             selectAllVenues.checked = checkedVenueCount === visibleVenueCheckboxes.length && visibleVenueCheckboxes.length > 0;
             
-            // REMOVE the automatic cross-filtering - just save the selection
-            saveCurrentFiltersEnhanced();
+            // REMOVED: No automatic filtering or saving - just update the selection
         },
         'trainer-checkbox': () => {
             updateSelectedArray(selectedTrainers, e.target.value, e.target.checked);
@@ -844,12 +838,13 @@ document.addEventListener('change', function(e) {
             const checkedTrainerCount = Array.from(visibleTrainerCheckboxes).filter(cb => cb.checked).length;
             selectAllTrainers.checked = checkedTrainerCount === visibleTrainerCheckboxes.length && visibleTrainerCheckboxes.length > 0;
             
-            // REMOVE the automatic cross-filtering - just save the selection
-            saveCurrentFiltersEnhanced();
+            // REMOVED: No automatic filtering or saving - just update the selection
         },
         'reached-checkbox': () => {
             updateSelectedArray(selectedReached, e.target.value, e.target.checked);
             selectAllReached.checked = selectedReached.length === availableReached.length;
+            
+            // REMOVED: No automatic filtering or saving - just update the selection
         }
     };
 
@@ -857,12 +852,12 @@ document.addEventListener('change', function(e) {
     const handler = Object.keys(handlers).find(key => e.target.classList.contains(key));
     if (handler) {
         handlers[handler]();
-        if (!handler.includes('venue') && !handler.includes('trainer')) {
+        // Only save for primary filters (not secondary)
+        if (!handler.includes('venue') && !handler.includes('trainer') && !handler.includes('reached')) {
             saveCurrentFiltersEnhanced();
         }
     }
 });
-
 
 function updateSelectedArray(array, value, isChecked) {
     if (isChecked && !array.includes(value)) {
@@ -920,45 +915,22 @@ async function applyPrimaryFilters() {
         availableVenues = [...new Set(allSessionData.map(item => item.venue).filter(Boolean))].sort();
         availableTrainers = [...new Set(allSessionData.map(item => item.name).filter(Boolean))].sort();
         
-        // ALWAYS initialize secondary filters as "all selected" when loading new primary data
-        const savedFilters = restoreFiltersFromStorage();
-        let shouldRestoreSecondaryFilters = false;
+        // NEW LOGIC: Check if this is a fresh apply (not from saved filters)
+        const isRestoringFromSavedFilters = checkIfRestoringFromSavedFilters();
         
-        if (savedFilters) {
-            const filterData = JSON.parse(savedFilters);
-            // Only restore if we're applying the exact same primary filters
-            const primaryFiltersMatch = 
-                JSON.stringify(selectedPartners.sort()) === JSON.stringify((filterData.selectedPartners || []).sort()) &&
-                JSON.stringify(selectedDates.sort()) === JSON.stringify((filterData.selectedDates || []).sort()) &&
-                JSON.stringify(selectedSessions.sort()) === JSON.stringify((filterData.selectedSessions || []).sort()) &&
-                JSON.stringify(selectedBlocks.sort()) === JSON.stringify((filterData.selectedBlocks || []).sort());
-            
-            if (primaryFiltersMatch) {
-                // Restore secondary filters only if they match current available options
-                if (filterData.selectedVenues && filterData.selectedVenues.length > 0) {
-                    selectedVenues = filterData.selectedVenues.filter(venue => availableVenues.includes(venue));
-                    shouldRestoreSecondaryFilters = true;
-                }
-                if (filterData.selectedTrainers && filterData.selectedTrainers.length > 0) {
-                    selectedTrainers = filterData.selectedTrainers.filter(trainer => availableTrainers.includes(trainer));
-                    shouldRestoreSecondaryFilters = true;
-                }
-                if (filterData.selectedReached) {
-                    selectedReached = filterData.selectedReached;
-                    shouldRestoreSecondaryFilters = true;
-                }
-            }
-        }
-        
-        // If no matching saved filters, initialize as "all selected"
-        if (!shouldRestoreSecondaryFilters) {
+        if (isRestoringFromSavedFilters) {
+            // Keep existing secondary filter selections from saved data
+            // (these are already set in handleSavedFilters)
+        } else {
+            // Fresh apply - select ALL secondary filters
             selectedVenues = [...availableVenues];
             selectedTrainers = [...availableTrainers];
             selectedReached = ['Yes', 'No'];
+            
+            // Clear any existing secondary filter cache since this is a fresh apply
+            clearSecondaryFilterCache();
         }
         
-        
-        // FIXED: Use the corrected updateSecondaryFilterUI
         updateSecondaryFilterUI();
         
         // Show secondary filters first
@@ -973,7 +945,24 @@ async function applyPrimaryFilters() {
             showToggleButton();
         }, 100);
         
-        applySecondaryFilters();
+        // IMPORTANT: Only apply secondary filters if restoring from saved state
+        // For fresh applies, just show the data without secondary filtering
+        if (isRestoringFromSavedFilters) {
+            applySecondaryFilters();
+        } else {
+            // Show all data initially (no secondary filtering)
+            filteredSessionData = [...allSessionData];
+            filteredSessionData.sort((a, b) => {
+                const venueA = (a.venue || '').toLowerCase();
+                const venueB = (b.venue || '').toLowerCase();
+                return venueA.localeCompare(venueB);
+            });
+            updateTable();
+            updateStats();
+            document.querySelectorAll('.session-table-container, .stats-grid')
+                .forEach(el => el.style.display = 'block');
+        }
+        
         saveCurrentFiltersEnhanced();
         setupRealtimeSubscription();
         hideLoading();
@@ -983,6 +972,55 @@ async function applyPrimaryFilters() {
         hideLoading();
         showError('Failed to load data: ' + error.message);
         return Promise.reject(error);
+    }
+}
+
+function checkIfRestoringFromSavedFilters() {
+    const savedFilters = restoreFiltersFromStorage();
+    if (!savedFilters) return false;
+    
+    try {
+        const filterData = JSON.parse(savedFilters);
+        
+        // Check if current primary filters match saved primary filters exactly
+        const primaryFiltersMatch = 
+            JSON.stringify(selectedPartners.sort()) === JSON.stringify((filterData.selectedPartners || []).sort()) &&
+            JSON.stringify(selectedDates.sort()) === JSON.stringify((filterData.selectedDates || []).sort()) &&
+            JSON.stringify(selectedSessions.sort()) === JSON.stringify((filterData.selectedSessions || []).sort()) &&
+            JSON.stringify(selectedBlocks.sort()) === JSON.stringify((filterData.selectedBlocks || []).sort());
+        
+        return primaryFiltersMatch;
+    } catch (error) {
+        return false;
+    }
+}
+
+function clearSecondaryFilterCache() {
+    const savedFilters = restoreFiltersFromStorage();
+    if (savedFilters) {
+        try {
+            const filterData = JSON.parse(savedFilters);
+            // Keep primary filters but clear secondary ones
+            const newFilterData = {
+                selectedPartners: filterData.selectedPartners,
+                selectedDates: filterData.selectedDates,
+                selectedSessions: filterData.selectedSessions,
+                selectedBlocks: filterData.selectedBlocks,
+                // Clear secondary filters
+                selectedVenues: [],
+                selectedTrainers: [],
+                selectedReached: ['Yes', 'No'],
+                hasSecondaryFilters: false,
+                expiresAt: filterData.expiresAt
+            };
+            
+            sessionStorage.setItem('savedFilters', JSON.stringify(newFilterData));
+            localStorage.setItem('savedFilters', JSON.stringify(newFilterData));
+        } catch (error) {
+            // If parsing fails, just remove the saved filters
+            sessionStorage.removeItem('savedFilters');
+            localStorage.removeItem('savedFilters');
+        }
     }
 }
 
