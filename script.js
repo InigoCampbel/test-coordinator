@@ -1,916 +1,1258 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SEED Training - Student Dashboard</title>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+// REPLACE THESE WITH YOUR SUPABASE CREDENTIALS
+const SUPABASE_URL = 'https://wetnbnemedzyzudvuihb.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndldG5ibmVtZWR6eXp1ZHZ1aWhiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ5MjM2ODksImV4cCI6MjA3MDQ5OTY4OX0.53iKjcKaImIz10H8hJv0MkDl08R8Pu8OprDcURqSmRQ';
 
-    <style>
-        :root {
-            --primary-color: #1e3a8a;
-            --secondary-color: #3b82f6;
-            --accent-color: #60a5fa;
-            --hover-color: #1e40af;
-            --background-color: #f8fafc;
-            --text-color: #1f2937;
-            --text-light: #64748b;
-            --bg-white: #ffffff;
-            --border-color: #e2e8f0;
-            --card-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
-            --card-hover-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
-            --radius: 12px;
-            --transition: all 0.3s ease;
-        }
-        
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            font-family: 'Poppins', sans-serif;
-        }
-        
-        body {
-            background-color: var(--background-color);
-            color: var(--text-color);
-            line-height: 1.6;
-            font-size: 16px;
-            overflow-x: hidden; /* Prevent horizontal scrolling */
-        }
-        
-        /* Loading overlay */
-        #loading-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: var(--bg-white);
-            z-index: 9999;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            transition: opacity 0.6s ease-out, visibility 0.6s ease-out;
-        }
-        
-        .loading-spinner {
-            display: inline-block;
-            width: 60px;
-            height: 60px;
-            border: 5px solid rgba(59, 130, 246, 0.2);
-            border-radius: 50%;
-            border-top-color: var(--secondary-color);
-            animation: spin 1s linear infinite;
-            margin-bottom: 20px;
-        }
-        
-        .loading-text {
-            color: var(--primary-color);
-            font-size: 18px;
-            font-weight: 600;
-            letter-spacing: 0.5px;
-        }
-        
-        .loading-progress {
-            width: 200px;
-            height: 6px;
-            background-color: var(--background-color);
-            border-radius: 3px;
-            margin-top: 15px;
-            overflow: hidden;
-        }
-        
-        .loading-progress-bar {
-            height: 100%;
-            width: 0%;
-            background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
-            border-radius: 3px;
-            transition: width 0.3s ease;
-        }
-        
-        /* Main content container - hidden initially */
-        #main-content {
-            opacity: 0;
-            transition: opacity 0.5s ease-in;
-        }
-        
-        .container {
-            width: 100%;
-            /*max-width: 1400px;  For larger screens */
-            margin: 0 auto;
-            padding: 16px;
-        }
-        
-        .header {
-            text-align: center;
-            margin-bottom: 24px;
-            padding-bottom: 16px;
-            border-bottom: 1px solid var(--border-color);
-            position: relative;
-        }
-        
-        .main-title {
-            font-size: 32px; /* Reduced size for mobile */
-            font-weight: 700;
-            color: var(--primary-color);
-            margin-bottom: 8px;
-            position: relative;
-        }
-        
-        .main-title::after {
-            content: "";
-            position: absolute;
-            bottom: -10px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 60px;
-            height: 4px;
-            background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
-            border-radius: 10px;
-        }
-        
-        .sub-title {
-            font-size: 14px;
-            font-weight: 400;
-            color: var(--text-light);
-            letter-spacing: 0.5px;
-            margin-top: 15px;
-        }
+// Initialize Supabase client
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        /* Decorative elements from login page */
-        .decorative-element {
-            position: absolute;
-            opacity: 0.4;
-            pointer-events: none;
-            z-index: 0;
-        }
-        
-        .circle-element {
-            width: 125px;
-            height: 125px;
-            border: 2px solid var(--secondary-color);
-            border-radius: 50%;
-            top: -85px;
-            right: -80px;
-            position: absolute;
-        }
-        
-        .diagonal-element {
-            width: 100px;
-            height: 2px;
-            background: var(--accent-color);
-            transform: rotate(45deg);
-            bottom: 115px;
-            left: -50px;
-            position: absolute;
-        }
+// Global state
+let allSessionData = [];
+let filteredSessionData = [];
+let currentUser = null;
+let userType = null;
+let realtimeSubscription = null;
 
-        .nav-bar {
-            display: flex;
-            flex-direction: column;
-            align-items: center; /* Center aligned for mobile */
-            margin-bottom: 20px;
-            width: 100%; /* Full width */
-            text-align: center;
-        }
+// Filter state
+let selectedPartners = [];
+let selectedDates = [];
+let selectedSessions = []
+let selectedBlocks = [];
+let selectedVenues = [];
+let selectedTrainers = [];
+let selectedReached = ['Yes', 'No']; 
 
-        #welcomeMessage {
-            font-size: 18px; /* Smaller for mobile */
-            margin-bottom: 12px;
-            font-weight: 500;
-            color: var(--primary-color);
-        }
+// Available options
+let availablePartners = [];
+let availableDates = [];
+let availableBlocks = [];
+let availableVenues = [];
+let availableTrainers = [];
+let availableReached = ['Yes', 'No'];
 
-        .logout-btn {
-            background-color: var(--primary-color);
-            color: white;
-            border: none;
-            padding: 10px 16px;
-            border-radius: var(--radius);
-            cursor: pointer;
-            font-weight: 500;
-            transition: var(--transition);
-            margin-top: 8px;
-            font-size: 16px;
-            width: 120px; /* Fixed width */
-            box-shadow: 0 4px 8px rgba(30, 58, 138, 0.2);
-            position: relative;
-            overflow: hidden;
-        }
+// DOM elements - cache frequently used elements
+const loginContainer = document.getElementById('loginContainer');
+const coordinatorIdInput = document.getElementById('coordinatorId');
+const loginBtn = document.getElementById('loginBtn');
+const clearBtn = document.getElementById('clearBtn');
+const logoutBtn = document.getElementById('logoutBtn');
+const errorMessage = document.getElementById('errorMessage');
+const loadingContainer = document.getElementById('loadingContainer');
+const coordinatorInfo = document.getElementById('coordinatorInfo');
+const coordinatorName = document.getElementById('coordinatorName');
+const coordinatorType = document.getElementById('coordinatorType');
 
-        .logout-btn:hover {
-            background-color: var(--hover-color);
-            box-shadow: 0 6px 12px rgba(30, 58, 138, 0.3);
-            transform: translateY(-2px);
-        }
-        
-        .logout-btn::before {
-            content: "";
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-            transition: all 0.6s ease;
-            z-index: 1;
-        }
-        
-        .logout-btn:hover::before {
-            left: 100%;
-        }
-        
-        /* Mobile logout container below session timings */
-        .mobile-logout-container {
-            display: flex;
-            justify-content: center;
-            margin: 16px 0;
-            width: 100%;
-        }
-        
-        /* Hide desktop logout button on mobile */
-        .desktop-only-logout {
-            display: none;
-        }
-        
-        .error-message {
-            color: #e74c3c;
-            padding: 12px;
-            margin: 16px 0;
-            font-weight: 500;
-            font-size: 14px;
-            background-color: rgba(231, 76, 60, 0.1);
-            border-radius: var(--radius);
-            display: none;
-            text-align: center;
-        }
-        
-        .dashboard-content {
-            display: flex;
-            flex-direction: column; /* Stack vertically on mobile */
-            width: 100%;
-        }
-        
-        .info-box, .attendance-box {
-            background-color: var(--bg-white);
-            border-radius: var(--radius);
-            padding: 20px;
-            margin-bottom: 24px;
-            box-shadow: var(--card-shadow);
-            transition: var(--transition);
-            width: 100%; /* Full width on mobile */
-            position: relative;
-            overflow: hidden;
-        }
-        
-        .info-box:hover, .attendance-box:hover {
-            box-shadow: var(--card-hover-shadow);
-            transform: translateY(-3px);
-        }
-        
-        .info-row {
-            margin-bottom: 16px;
-            position: relative;
-            z-index: 1;
-        }
-        
-        .info-label {
-            font-weight: 600;
-            color: var(--text-light);
-            margin-bottom: 4px;
-            font-size: 13px;
-            letter-spacing: 0.5px;
-        }
-        
-        .info-value {
-            color: var(--text-color);
-            font-size: 16px;
-            word-break: break-word;
-            font-weight: 500;
-        }
-        
-        .attendance-header {
-            font-size: 18px;
-            margin-bottom: 20px;
-            color: var(--primary-color);
-            font-weight: 600;
-            border-bottom: 1px solid var(--border-color);
-            padding-bottom: 10px;
-            text-align: center;
-        }
-        
-        .session-timings {
-            background-color: white;
-            padding: 15px;
-            border-radius: var(--radius);
-            margin-top: 20px;
-            margin-bottom: 20px;
-            font-size: 14px;
-            border-left: 4px solid var(--accent-color);
-            background: rgba(240, 245, 255, 0.7);
-        }
-        
-        .session-title {
-            font-weight: 600;
-            color: var(--primary-color);
-            margin-bottom: 8px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        
-        .session-time {
-            margin-bottom: 6px;
-        }
-        
-        .session-name {
-            font-weight: 500;
-            margin-right: 8px;
-        }
-        
-        .attendance-percentage {
-            background: linear-gradient(90deg, var(--primary-color), var(--hover-color));
-            padding: 12px;
-            border-radius: var(--radius);
-            margin: 20px 0;
-            display: flex;
-            align-items: center;
-            justify-content: center; /* Center on mobile */
-            box-shadow: 0 4px 8px rgba(30, 58, 138, 0.2);
-        }
-        
-        .attendance-label {
-            font-weight: 600;
-            color: white;
-            font-size: 14px;
-            margin-right: 8px;
-        }
-        
-        .attendance-value {
-            font-weight: 700;
-            color: white;
-            font-size: 16px;
-        }
-        
-        /* Make only the attendance table horizontally scrollable */
-        .attendance-table-container {
-            width: 100%;
-            overflow-x: auto; /* Horizontal scroll only for the table */
-            -webkit-overflow-scrolling: touch;
-            margin: 0 auto;
-        }
-        
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 8px;
-            font-size: 13px;
-            min-width: 450px; /* Ensures table needs horizontal scrolling on small screens */
-        }
-        
-        th, td {
-            padding: 12px 8px;
-            text-align: center;
-            border-bottom: 1px solid var(--border-color);
-        }
-        
-        th {
-            color: var(--text-light);
-            font-weight: 600;
-            white-space: nowrap;
-        }
-        
-        td {
-            color: var(--text-color);
-            font-weight: 500;
-        }
-        
-        tbody tr:hover {
-            background-color: rgba(30, 64, 175, 0.05);
-        }
-        
-        .date-column {
-            text-align: center;
-            font-weight: 600;
-            color: var(--text-color);
-            white-space: nowrap;
-        }
-        
-        .footer {
-            text-align: center;
-            margin-top: 32px;
-            color: var(--text-light);
-            font-size: 13px;
-            padding: 16px;
-            border-top: 1px solid var(--border-color);
-        }
-        
-        .status-badge {
-            display: inline-block;
-            padding: 3px 8px;
-            border-radius: 8px;
-            font-size: 12px;
-            font-weight: 600;
-        }
-        
-        .badge-present {
-            background-color: #fef08a;
-            color: #854d0e;
-        }
-        
-        .badge-absent {
-            background-color: #1e293b;
-            color: white;
-        }
-        
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        
-        /* Animation for element appearance */
-        @keyframes fadeInUp {
-            from {
-                opacity: 0;
-                transform: translateY(20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-        
-        .fade-in-element {
-            animation: fadeInUp 0.6s ease-out forwards;
-        }
-        
-        /* Enhanced responsive styles */
-        @media (min-width: 768px) {
-            .container {
-                padding: 24px;
-            }
-            
-            .main-title {
-                font-size: 40px;
-            }
-            
-            .nav-bar {
-                flex-direction: row;
-                justify-content: space-between;
-                align-items: center;
-                text-align: left;
-            }
-            
-            #welcomeMessage {
-                font-size: 20px;
-                margin-bottom: 0;
-            }
-            
-            .dashboard-content {
-                flex-direction: row;
-                flex-wrap: wrap;
-                gap: 24px;
-            }
-            
-            .info-box {
-                flex: 1;
-                min-width: 300px;
-            }
-            
-            .attendance-box {
-                flex: 2;
-                min-width: 450px;
-            }
-            
-            .attendance-header {
-                text-align: left;
-            }
-            
-            .attendance-percentage {
-                justify-content: flex-start;
-            }
-            
-            /* Show desktop logout button and hide mobile logout on larger screens */
-            .desktop-only-logout {
-                display: block;
-            }
-            
-            .mobile-logout-container {
-                display: none;
-            }
-            
-            .main-title::after {
-                left: 50%;
-                transform: translateX(-50%);
-            }
-        }
-    </style>
-</head>
-<body>
-    <!-- Loading Overlay -->
-    <div id="loading-overlay">
-        <div class="loading-spinner"></div>
-        <div class="loading-text">Loading your dashboard...</div>
-        <div class="loading-progress">
-            <div id="loading-progress-bar" class="loading-progress-bar"></div>
-        </div>
-    </div>
+// Filter elements
+const trainingPartnerRow = document.getElementById('trainingPartnerRow');
+const partnerOptions = document.getElementById('partnerOptions');
+const selectAllPartners = document.getElementById('selectAllPartners');
+const dateOptions = document.getElementById('dateOptions');
+const selectAllDates = document.getElementById('selectAllDates');
+const sessionOptions = document.getElementById('sessionOptions');
+const selectAllSessions = document.getElementById('selectAllSessions');
+const blockOptions = document.getElementById('blockOptions');
+const selectAllBlocks = document.getElementById('selectAllBlocks');
+const venueOptions = document.getElementById('venueOptions');
+const selectAllVenues = document.getElementById('selectAllVenues');
+const trainerOptions = document.getElementById('trainerOptions');
+const selectAllTrainers = document.getElementById('selectAllTrainers');
+const reachedOptions = document.getElementById('reachedOptions');
+const selectAllReached = document.getElementById('selectAllReached');
+
+const applyFilterBtn = document.getElementById('applyFilter');
+const clearFilterBtn = document.getElementById('clearFilter');
+const applySecondaryFilterBtn = document.getElementById('applySecondaryFilter');
+const secondaryFilters = document.getElementById('secondaryFilters');
+
+// Table elements
+const sessionTableBody = document.getElementById('sessionTableBody');
+const totalTrainersEl = document.getElementById('totalTrainers');
+const trainersReachedEl = document.getElementById('trainersReached');
+const trainersYetToReachEl = document.getElementById('trainersYetToReach');
+
+// Modal elements
+const sessionDetailsModal = document.getElementById('sessionDetailsModal');
+const closeModalBtn = document.getElementById('closeModal');
+const sessionDetailsContent = document.getElementById('sessionDetailsContent');
+
+// Other elements
+const toggleInstructionsBtn = document.getElementById('toggleInstructions');
+const instructionsContent = document.getElementById('instructionsContent');
+
+function formatDateToDDMMMYYYY(dateString) {
+    const date = new Date(dateString);
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
+                   'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const day = date.getDate();
+    const month = months[date.getMonth()];
+    const year = date.getFullYear();
+    return `${day} ${month} ${year}`;
+}
+
+// Enhanced session persistence with mobile browser handling
+function saveUserSession(user, userTypeValue) {
+    const sessionData = {
+        user: user,
+        userType: userTypeValue,
+        timestamp: Date.now(),
+        // Set expiration to 8 hours
+        expiresAt: Date.now() + (8 * 60 * 60 * 1000)
+    };
     
-    <!-- Main Content (initially hidden) -->
-    <div id="main-content">
-        <div class="container">
-            <div class="header fade-in-element" style="animation-delay: 0.1s;">
-                <!--<div class="decorative-element circle-element"></div>-->
-                <div class="decorative-element diagonal-element"></div>
-                <h1 class="main-title">SEED Training</h1>
-                <div class="sub-title">01 September 2025 to 04 September 2025</div>
-            </div>
-            
-            <div class="nav-bar fade-in-element" style="animation-delay: 0.2s;">
-                <h2 id="welcomeMessage">Welcome, Student</h2>
-                <!-- Logout button moved to mobile-logout-container in mobile view -->
-                <button id="logoutBtn" class="logout-btn desktop-only-logout"><i class="fas fa-sign-out-alt"></i> Logout</button>
-            </div>
-            
-            <div id="errorMessage" class="error-message"></div>
-            
-            <div class="dashboard-content">
-                <div class="info-box fade-in-element" style="animation-delay: 0.3s;">
-                    <div class="decorative-element circle-element" style="opacity: 0.4;"></div>
-                    <h3 class="attendance-header">Student Information</h3>
-                    <div class="info-row">
-                        <div class="info-label">Name</div>
-                        <div id="name" class="info-value"></div>
-                    </div>
-                    <div class="info-row">
-                        <div class="info-label">Roll Number</div>
-                        <div id="roll" class="info-value"></div>
-                    </div>
-                    <div class="info-row">
-                        <div class="info-label">Department</div>
-                        <div id="department" class="info-value"></div>
-                    </div>
-                    <div class="info-row">
-                        <div class="info-label">Venue</div>
-                        <div id="venue" class="info-value"></div>
-                    </div>
-                    
-                </div>
-                
-                <div class="attendance-box fade-in-element" style="animation-delay: 0.4s;">
-                    <div class="decorative-element diagonal-element" style="opacity: 0.1;"></div>
-                    <h2 class="attendance-header">Attendance Record</h2>
-                    
-                    <div class="attendance-percentage">
-                        <span class="attendance-label">Attendance Percentage:</span>
-                        <span id="attendancePercentage" class="attendance-value">-</span>
-                    </div>
-                    
-                    <!-- Only this container is horizontally scrollable -->
-                    <div class="attendance-table-container">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Date</th>
-                                    <th>Session 1</th>
-                                    <th>Session 2</th>
-                                    <th>Session 3</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td class="date-column">01 Sep 2025</td>
-                                    <td id="sep01s1"></td>
-                                    <td id="sep01s2"></td>
-                                    <td id="sep01s3"></td>
-                                </tr>
-                                <tr>
-                                    <td class="date-column">02 Sep 2025</td>
-                                    <td id="sep02s1"></td>
-                                    <td id="sep02s2"></td>
-                                    <td id="sep02s3"></td>
-                                </tr>
-                                <tr>
-                                    <td class="date-column">03 Sep 2025</td>
-                                    <td id="sep03s1"></td>
-                                    <td id="sep03s2"></td>
-                                    <td id="sep03s3"></td>
-                                </tr>
-                                <tr>
-                                    <td class="date-column">04 Sep 2025</td>
-                                    <td id="sep04s1"></td>
-                                    <td id="sep04s2"></td>
-                                    <td id="sep04s3"></td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                    
-                    <!-- Mobile rep button -->
-                    <div id="mobileRepButtonContainer" class="mobile-logout-container" style="display: none;">
-                        <button id="mobileViewClassmatesBtn" class="logout-btn" style="width: 200px; font-size: 14px;">
-                            <i class="fas fa-users"></i> View Classmates Attendance
-                        </button>
-                    </div>
+    // Use both sessionStorage and localStorage for redundancy
+    sessionStorage.setItem('currentUser', JSON.stringify(user));
+    localStorage.setItem('userSession', JSON.stringify(sessionData));
+    
+    // Also save to a cookie as fallback for extreme cases
+    const expires = new Date(Date.now() + (8 * 60 * 60 * 1000)).toUTCString();
+    document.cookie = `userSession=${encodeURIComponent(JSON.stringify(sessionData))}; expires=${expires}; path=/; SameSite=Strict`;
+}
 
-                    <div class="session-timings">
-                        <div class="session-title"><i class="fas fa-clock"></i> Session Timings</div>
-                        <div class="session-time">
-                            <span class="session-name">Session 1:</span> 09:00 AM - 11:00 AM
-                        </div>
-                        <div class="session-time">
-                            <span class="session-name">Session 2:</span> 11:30 AM - 01:30 PM
-                        </div>
-                        <div class="session-time">
-                            <span class="session-name">Session 3:</span> 02:30 PM - 04:30 PM
-                        </div>
-                    </div>
-                    
-                    <!-- Mobile logout button container -->
-                    <div class="mobile-logout-container">
-                        <button id="mobileLogoutBtn" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</button>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="footer fade-in-element" style="animation-delay: 0.5s;">
-                For any discrepancies in attendance, please contact Learning & Development, PSG College of Arts & Science
-            </div>
-        </div>
-    </div>
-
-    <script>
-        // Get DOM elements for loading management
-        const loadingOverlay = document.getElementById('loading-overlay');
-        const mainContent = document.getElementById('main-content');
-        const progressBar = document.getElementById('loading-progress-bar');
-        const loadingText = document.querySelector('.loading-text');
-
-        // Get DOM elements for data display
-        const errorDiv = document.getElementById('errorMessage');
-        const logoutBtn = document.getElementById('logoutBtn');
-        const welcomeMessage = document.getElementById('welcomeMessage');
-
-        // Function to update the loading progress
-        function updateLoadingProgress(message, progress) {
-            loadingText.textContent = message;
-            progressBar.style.width = `${progress}%`;
+function getUserSession() {
+    // Try sessionStorage first (fastest)
+    let savedUser = sessionStorage.getItem('currentUser');
+    if (savedUser) {
+        return JSON.parse(savedUser);
+    }
+    
+    // Try localStorage
+    const sessionData = localStorage.getItem('userSession');
+    if (sessionData) {
+        const parsed = JSON.parse(sessionData);
+        
+        // Check if session is still valid
+        if (Date.now() < parsed.expiresAt) {
+            // Restore to sessionStorage for faster access
+            sessionStorage.setItem('currentUser', JSON.stringify(parsed.user));
+            return parsed.user;
+        } else {
+            // Clean up expired session
+            localStorage.removeItem('userSession');
         }
-
-        // Function to simulate a gradually increasing progress over 5 seconds
-        function simulateLoading() {
-            const totalDuration = 500; // 1 seconds in milliseconds
-            const startTime = Date.now();
-            let progress = 0;
-            
-            // Define loading messages at different stages
-            const loadingMessages = [
-                { threshold: 0, message: "Ready!" },
-            ];
-            
-            // Update function that will be called repeatedly
-            const updateProgress = () => {
-                const elapsedTime = Date.now() - startTime;
-                const progressPercent = Math.min(Math.floor((elapsedTime / totalDuration) * 100), 99);
-                
-                // Find appropriate message for current progress
-                const currentMessageObj = loadingMessages
-                    .slice()
-                    .reverse()
-                    .find(msg => progressPercent >= msg.threshold);
-                    
-                if (currentMessageObj) {
-                    updateLoadingProgress(currentMessageObj.message, progressPercent);
-                }
-                
-                if (elapsedTime < totalDuration) {
-                    // Continue updating until we reach the total duration
-                    requestAnimationFrame(updateProgress);
-                } else {
-                    // Complete the loading bar at 100%
-                    updateLoadingProgress("Ready!", 100);
-                    
-                    // Small delay after reaching 100% before hiding overlay
-                    setTimeout(() => {
-                        loadingOverlay.style.opacity = '0';
-                        loadingOverlay.style.visibility = 'hidden';
-                        mainContent.style.opacity = '1';
-                    }, 300);
-                }
-            };
-            
-            // Start the progress updates
-            updateProgress();
-        }
-
-        // Create logout overlay element
-        const logoutOverlay = document.createElement('div');
-        logoutOverlay.id = 'logout-overlay';
-        logoutOverlay.style.cssText = `
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(255, 255, 255, 0.95);
-            z-index: 9999;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            opacity: 0;
-            visibility: hidden;
-            transition: opacity 0.3s ease-out, visibility 0.3s ease-out;
-        `;
-
-        const logoutSpinner = document.createElement('div');
-        logoutSpinner.className = 'loading-spinner';
-
-        const logoutMessage = document.createElement('div');
-        logoutMessage.style.cssText = `
-            color: var(--primary-color);
-            font-size: 18px;
-            font-weight: 600;
-            letter-spacing: 0.5px;
-            margin-top: 20px;
-        `;
-        logoutMessage.textContent = 'Logging out...';
-
-        logoutOverlay.appendChild(logoutSpinner);
-        logoutOverlay.appendChild(logoutMessage);
-        document.body.appendChild(logoutOverlay);
-
-        // Get both logout buttons
-        const mobileLogoutBtn = document.getElementById('mobileLogoutBtn');
-
-        // Function to handle logout
-        function handleLogout() {
-            // Show logout overlay
-            logoutOverlay.style.visibility = 'visible';
-            logoutOverlay.style.opacity = '1';
-            
-            // Simulate logout process with delay
-            setTimeout(() => {
-                // Clear session and redirect to login page
-                sessionStorage.removeItem('studentPortalSession');
-                window.location.href = '../student-login.html';
-            }, 2000); // 2-second delay
-        }
-
-        // Add event listeners to both logout buttons
-        logoutBtn.addEventListener('click', handleLogout);
-        mobileLogoutBtn.addEventListener('click', handleLogout);
-
-        // Add SVG to logout buttons
-        function addLogoutIcon() {
-            const logoutSvg = `
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                    style="width: 1.2em; height: 1.2em; margin-right: 0.1em; vertical-align: middle;">
-                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
-                    <polyline points="16 17 21 12 16 7"></polyline>
-                    <line x1="21" y1="12" x2="9" y2="12"></line>
-                </svg>
-            `;
-            
-            // Add icon to both logout buttons
-            logoutBtn.innerHTML = logoutSvg + 'Logout';
-            mobileLogoutBtn.innerHTML = logoutSvg + 'Logout';
-        }
-
-        // Display student data from session storage
-        function displayStudentData() {
-            // Get session data
-            const sessionData = JSON.parse(sessionStorage.getItem('studentPortalSession'));
-            
-            if (!sessionData || !sessionData.studentData) {
-                showError("No student data available. Please log in again.");
-                return false;
-            }
-            
-            const data = sessionData.studentData;
-            
-            // Update welcome message with student name
-            if (data.name) {
-                welcomeMessage.textContent = `Welcome, ${data.name}`;
-            }
-            
-            // Display student data
-            document.getElementById('name').textContent = data.name || "-";
-            document.getElementById('roll').textContent = data.roll_number || sessionData.userId;
-            document.getElementById('department').textContent = data.department || "-";
-            // Check if user is a rep and show/hide buttons accordingly
-            const userRole = data.role || "Student";
-            const mobileRepButtonContainer = document.getElementById('mobileRepButtonContainer');
-            const mobileViewClassmatesBtn = document.getElementById('mobileViewClassmatesBtn');
-
-            if (userRole === "Rep") {
-                mobileRepButtonContainer.style.display = 'flex';
-                
-                // Add click event listener for mobile button only
-                mobileViewClassmatesBtn.addEventListener('click', function() {
-                    // Store rep data for the classmates page
-                    const repData = {
-                        department: data.department,
-                        repName: data.name,
-                        repRoll: data.roll_number
-                    };
-                    sessionStorage.setItem('repData', JSON.stringify(repData));
-                    window.location.href = 'classmates.html';
-                });
-            }
-            document.getElementById('venue').textContent = data.venue || "-";
-            
-            // Handle attendance percentage - Updated logic
-            let attendancePercentage = data.attendance_percentage;
-
-            // Check for all possible empty/null/undefined cases
-            if (attendancePercentage === null || 
-                attendancePercentage === undefined || 
-                attendancePercentage === "" || 
-                attendancePercentage === "-" ||
-                isNaN(attendancePercentage)) {
-                document.getElementById('attendancePercentage').textContent = "-";
+    }
+    
+    // Try cookie as last resort
+    const cookies = document.cookie.split(';');
+    const sessionCookie = cookies.find(cookie => cookie.trim().startsWith('userSession='));
+    if (sessionCookie) {
+        try {
+            const sessionData = JSON.parse(decodeURIComponent(sessionCookie.split('=')[1]));
+            if (Date.now() < sessionData.expiresAt) {
+                // Restore to both storages
+                sessionStorage.setItem('currentUser', JSON.stringify(sessionData.user));
+                localStorage.setItem('userSession', JSON.stringify(sessionData));
+                return sessionData.user;
             } else {
-                // Convert to number and calculate percentage
-                const numericPercentage = parseFloat(attendancePercentage);
+                // Clean up expired cookie
+                document.cookie = 'userSession=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+            }
+        } catch (e) {
+            console.error('Error parsing session cookie:', e);
+        }
+    }
+    
+    return null;
+}
+
+function clearUserSession() {
+    // Clear all session data
+    sessionStorage.removeItem('currentUser');
+    localStorage.removeItem('userSession');
+    document.cookie = 'userSession=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+    
+    // Also clear saved filters
+    sessionStorage.removeItem('savedFilters');
+    localStorage.removeItem('savedFilters');
+}
+
+// Enhanced page visibility handling for mobile browsers
+function handlePageVisibility() {
+    document.addEventListener('visibilitychange', function() {
+        if (document.hidden) {
+            // Page is being hidden - save current state
+            if (currentUser) {
+                saveUserSession(currentUser, userType);
                 
-                if (isNaN(numericPercentage)) {
-                    document.getElementById('attendancePercentage').textContent = "-";
-                } else {
-                    const percentDisplay = (numericPercentage * 100).toFixed(2) + "%";
-                    document.getElementById('attendancePercentage').textContent = percentDisplay;
+                // Save current filters to localStorage as well
+                const filterData = sessionStorage.getItem('savedFilters');
+                if (filterData) {
+                    localStorage.setItem('savedFilters', filterData);
                 }
             }
-            
-            // Update attendance table
-            const sessionMappings = [
-                { id: 'sep01s1', field: 'sep_01_s1' },
-                { id: 'sep01s2', field: 'sep_01_s2' },
-                { id: 'sep01s3', field: 'sep_01_s3' },
-                { id: 'sep02s1', field: 'sep_02_s1' },
-                { id: 'sep02s2', field: 'sep_02_s2' },
-                { id: 'sep02s3', field: 'sep_02_s3' },
-                { id: 'sep03s1', field: 'sep_03_s1' },
-                { id: 'sep03s2', field: 'sep_03_s2' },
-                { id: 'sep03s3', field: 'sep_03_s3' },
-                { id: 'sep04s1', field: 'sep_04_s1' },
-                { id: 'sep04s2', field: 'sep_04_s2' },
-                { id: 'sep04s3', field: 'sep_04_s3' }
-            ];
-
-            sessionMappings.forEach(mapping => {
-                const cellElement = document.getElementById(mapping.id);
-                const value = data[mapping.field] || "-";
-                
-                if (value === "A") {
-                    cellElement.innerHTML = '<span class="status-badge badge-absent">Absent</span>';
-                } else if (value === "P") {
-                    cellElement.innerHTML = '<span class="status-badge badge-present">Present</span>';
-                } else {
-                    cellElement.textContent = value;
+        } else {
+            // Page is visible again - restore state if needed
+            if (!currentUser) {
+                const savedUser = getUserSession();
+                if (savedUser) {
+                    currentUser = savedUser;
+                    userType = getUserType(currentUser.id);
+                    coordinatorName.textContent = currentUser.name;
+                    coordinatorType.textContent = userType;
+                    showMainContent();
+                    setupUserInterface();
                 }
-            });
-            
-            return true;
-        }
-
-        // Show error message
-        function showError(message) {
-            errorDiv.textContent = message;
-            errorDiv.style.display = 'block';
-        }
-
-        // Initialize dashboard
-        function initDashboard() {
-            // Check if user is logged in
-            const sessionData = JSON.parse(sessionStorage.getItem('studentPortalSession'));
-            
-            if (!sessionData || sessionData.expires < Date.now()) {
-                // Session expired or doesn't exist, redirect to login
-                sessionStorage.removeItem('studentPortalSession');
-                window.location.href = '../index.html';
-                return;
             }
-            
-            // Add logout icon
-            addLogoutIcon();
-            
-            // Load student data in the background
-            displayStudentData();
-            
-            // Start simulated loading with minimum 5 seconds
-            simulateLoading();
         }
+    });
+}
 
-        // Initialize page
-        document.addEventListener('DOMContentLoaded', function() {
-            // Start loading sequence
-            initDashboard();
+// Enhanced beforeunload handler for mobile
+function handleBeforeUnload() {
+    window.addEventListener('beforeunload', function() {
+        if (currentUser) {
+            saveUserSession(currentUser, userType);
+            
+            // Save current filters
+            const filterData = sessionStorage.getItem('savedFilters');
+            if (filterData) {
+                localStorage.setItem('savedFilters', filterData);
+            }
+        }
+    });
+    
+    // Also handle pagehide event which is more reliable on mobile
+    window.addEventListener('pagehide', function() {
+        if (currentUser) {
+            saveUserSession(currentUser, userType);
+            
+            const filterData = sessionStorage.getItem('savedFilters');
+            if (filterData) {
+                localStorage.setItem('savedFilters', filterData);
+            }
+        }
+    });
+}
+
+// Enhanced filter saving with localStorage backup
+function saveCurrentFiltersEnhanced() {
+    const filterData = {
+        selectedPartners,
+        selectedDates,
+        selectedSessions,
+        selectedBlocks,
+        selectedVenues,
+        selectedTrainers,
+        selectedReached,
+        expiresAt: Date.now() + (2 * 60 * 60 * 1000)
+    };
+    
+    // Save to both storages
+    sessionStorage.setItem('savedFilters', JSON.stringify(filterData));
+    localStorage.setItem('savedFilters', JSON.stringify(filterData));
+}
+
+// Enhanced filter restoration
+function restoreFiltersFromStorage() {
+    let savedFilters = sessionStorage.getItem('savedFilters');
+    
+    // If not in sessionStorage, try localStorage
+    if (!savedFilters) {
+        savedFilters = localStorage.getItem('savedFilters');
+        if (savedFilters) {
+            // Restore to sessionStorage for faster access
+            sessionStorage.setItem('savedFilters', savedFilters);
+        }
+    }
+    
+    return savedFilters;
+}
+
+// Initialize the app
+document.addEventListener('DOMContentLoaded', function() {
+    initializeEventListeners();
+    hideMainContent();
+    
+    // Set up page visibility and unload handlers
+    handlePageVisibility();
+    handleBeforeUnload();
+    
+    // Check for existing session with enhanced method
+    const savedUser = getUserSession();
+    if (savedUser) {
+        currentUser = savedUser;
+        userType = getUserType(currentUser.id);
+        coordinatorName.textContent = currentUser.name;
+        coordinatorType.textContent = userType;
+        
+        showMainContent();
+        setupUserInterface();
+    }
+});
+
+function initializeEventListeners() {
+    loginBtn.addEventListener('click', loginCoordinator);
+    clearBtn.addEventListener('click', clearLoginForm);
+    logoutBtn.addEventListener('click', logout);
+    coordinatorIdInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') loginCoordinator();
+    });
+    
+    applyFilterBtn.addEventListener('click', applyPrimaryFilters);
+    clearFilterBtn.addEventListener('click', clearAllFilters);
+    applySecondaryFilterBtn.addEventListener('click', applySecondaryFiltersWithUpdate);
+    
+    closeModalBtn.addEventListener('click', closeModal);
+    toggleInstructionsBtn.addEventListener('click', toggleInstructions);
+    
+    initializeFilterListeners();
+}
+
+// Login functions
+function validateCoordinatorId(id) {
+    if (!id || id.trim() === '') {
+        return { valid: false, message: 'Please enter a Coordinator ID' };
+    }
+    
+    const trimmedId = id.replace(/\s+/g, '').toUpperCase();
+    const patterns = [/^FACE\d{2}$/, /^SP\d{2}$/, /^LND\d{2}$/];
+    const isValid = patterns.some(pattern => pattern.test(trimmedId));
+    
+    if (!isValid) {
+        return { valid: false, message: 'Invalid Coordinator ID' };
+    }
+    
+    return { valid: true, value: trimmedId };
+}
+
+function getUserType(coordinatorId) {
+    if (coordinatorId.startsWith('FACE')) return 'FACE';
+    if (coordinatorId.startsWith('SP')) return 'SP';
+    if (coordinatorId.startsWith('LND')) return 'LND';
+    return null;
+}
+
+function getTrainingPartnerForUser(userType) {
+    switch(userType) {
+        case 'FACE': return 'FACE';
+        case 'SP': return 'Six Phrase';
+        case 'LND': return null;
+        default: return null;
+    }
+}
+
+async function loginCoordinator() {
+    const coordinatorIdResult = validateCoordinatorId(coordinatorIdInput.value);
+    
+    if (!coordinatorIdResult.valid) {
+        showError(coordinatorIdResult.message);
+        return;
+    }
+    
+    try {
+        showLoading('Logging in...');
+        
+        currentUser = {
+            id: coordinatorIdResult.value,
+            name: `Coordinator ${coordinatorIdResult.value}`
+        };
+        
+        userType = getUserType(currentUser.id);
+        
+        // Enhanced session saving
+        saveUserSession(currentUser, userType);
+        
+        coordinatorName.textContent = currentUser.name;
+        coordinatorType.textContent = userType;
+        
+        showMainContent();
+        setupUserInterface();
+        hideLoading();
+        
+    } catch (error) {
+        hideLoading();
+        showError(error.message || 'Login failed. Please try again.');
+    }
+}
+
+function logout() {
+    // Clear all stored data from all storage types
+    clearUserSession();
+    sessionStorage.removeItem('instructionsHidden');
+    sessionStorage.removeItem('filtersHidden');
+    
+    // Reset state
+    currentUser = null;
+    userType = null;
+    
+    clearAllFilters();
+    clearLoginForm();
+    hideMainContent();
+    loginContainer.style.display = 'block';
+    
+    // Cleanup
+    if (realtimeSubscription) {
+        realtimeSubscription.unsubscribe();
+        realtimeSubscription = null;
+    }
+
+    const toggleButton = document.getElementById('toggleFilters');
+    if (toggleButton) {
+        toggleButton.remove();
+    }
+    
+    // Clear data arrays
+    allSessionData = [];
+    filteredSessionData = [];
+    availablePartners = [];
+    availableDates = [];
+    availableBlocks = [];
+    availableVenues = [];
+    availableTrainers = [];
+}
+
+function clearLoginForm() {
+    coordinatorIdInput.value = '';
+    errorMessage.style.display = 'none';
+}
+
+// UI functions
+function showError(message) {
+    errorMessage.textContent = message;
+    errorMessage.style.display = 'block';
+    setTimeout(() => {
+        errorMessage.style.display = 'none';
+    }, 5000);
+}
+
+function showLoading(message = 'Loading...') {
+    loadingContainer.querySelector('.loading-text').textContent = message;
+    loadingContainer.style.display = 'flex';
+}
+
+function hideLoading() {
+    loadingContainer.style.display = 'none';
+}
+
+function hideMainContent() {
+    document.querySelectorAll('.information-board, .filter-section, .secondary-filter-section, .session-table-container, .stats-grid')
+        .forEach(el => el.style.display = 'none');
+    coordinatorInfo.style.display = 'none';
+    logoutBtn.style.display = 'none';
+}
+
+function showMainContent() {
+    document.querySelectorAll('.information-board, .filter-section')
+        .forEach(el => el.style.display = 'block');
+    coordinatorInfo.style.display = 'block';
+    logoutBtn.style.display = 'block';
+    loginContainer.style.display = 'none';
+}
+
+function createToggleButton() {
+    const filterSection = document.querySelector('.filter-section');
+    const secondaryFilterSection = document.querySelector('.secondary-filter-section');
+
+    if (!document.getElementById('toggleFilters')) {
+        const toggleButton = document.createElement('button');
+        toggleButton.id = 'toggleFilters';
+        toggleButton.className = 'toggle-filters-btn';
+        toggleButton.innerHTML = '<i class="fas fa-filter"></i> Hide Filters';
+        
+        filterSection.parentNode.insertBefore(toggleButton, filterSection);
+        
+        toggleButton.addEventListener('click', function() {
+            const isHidden = filterSection.style.display === 'none';
+            
+            if (isHidden) {
+                filterSection.style.display = 'block';
+                
+                const hasLoadedData = allSessionData && allSessionData.length > 0;
+                if (hasLoadedData) {
+                    secondaryFilterSection.style.display = 'block';
+                }
+                
+                this.innerHTML = '<i class="fas fa-filter"></i> Hide Filters';
+                sessionStorage.setItem('filtersHidden', 'false');
+            } else {
+                filterSection.style.display = 'none';
+                secondaryFilterSection.style.display = 'none';
+                this.innerHTML = '<i class="fas fa-filter"></i> Show Filters';
+                sessionStorage.setItem('filtersHidden', 'true');
+            }
         });
-    </script>
-</body>
+    }
+}
 
-</html>
+// FIXED: Simplified setupUserInterface with immediate UI state restoration
+function setupUserInterface() {
+    // Setup training partner visibility
+    if (userType === 'LND') {
+        trainingPartnerRow.style.display = 'block';
+        availablePartners = ['FACE', 'Six Phrase'];
+        selectedPartners = [...availablePartners];
+    } else {
+        trainingPartnerRow.style.display = 'none';
+        availablePartners = [getTrainingPartnerForUser(userType)];
+        selectedPartners = [...availablePartners];
+    }
+
+    // Create toggle button
+    createToggleButton();
+    
+    // FIXED: Apply UI states IMMEDIATELY before any async operations
+    applyStoredUIStates();
+
+    // Load initial options and handle saved filters
+    loadInitialFilterOptions().then(() => {
+        handleSavedFilters();
+    });
+}
+
+// FIXED: New function to apply UI states immediately and synchronously
+function applyStoredUIStates() {
+    // Instructions state
+    const instructionsHidden = sessionStorage.getItem('instructionsHidden');
+    if (instructionsHidden === 'true') {
+        instructionsContent.classList.add('hidden');
+        toggleInstructionsBtn.innerHTML = 'Show <i class="fas fa-chevron-down"></i>';
+    } else if (instructionsHidden === 'false') {
+        instructionsContent.classList.remove('hidden');
+        toggleInstructionsBtn.innerHTML = 'Hide <i class="fas fa-chevron-up"></i>';
+    }
+    
+    // Filter visibility state
+    const filtersHidden = sessionStorage.getItem('filtersHidden');
+    const toggleButton = document.getElementById('toggleFilters');
+    const filterSection = document.querySelector('.filter-section');
+    const secondaryFilterSection = document.querySelector('.secondary-filter-section');
+    
+    // Check if saved filters exist to determine if secondary filters should be shown
+    const hasSavedFilters = restoreFiltersFromStorage();
+    
+    if (filtersHidden === 'true' && toggleButton) {
+        filterSection.style.display = 'none';
+        secondaryFilterSection.style.display = 'none';
+        toggleButton.innerHTML = '<i class="fas fa-filter"></i> Show Filters';
+    } else if (filtersHidden === 'false' && toggleButton && hasSavedFilters) {
+        filterSection.style.display = 'block';
+        // Don't show secondary filters yet - let the data loading process handle it
+        toggleButton.innerHTML = '<i class="fas fa-filter"></i> Hide Filters';
+    }
+}
+
+// Enhanced handleSavedFilters function
+function handleSavedFilters() {
+    const savedFilters = restoreFiltersFromStorage();
+    if (!savedFilters) return;
+    
+    const filterData = JSON.parse(savedFilters);
+    
+    // Check expiry
+    if (Date.now() >= filterData.expiresAt) {
+        sessionStorage.removeItem('savedFilters');
+        localStorage.removeItem('savedFilters');
+        return;
+    }
+    
+    // Restore filter selections
+    selectedPartners = filterData.selectedPartners;
+    selectedDates = filterData.selectedDates;
+    selectedSessions = filterData.selectedSessions;
+    selectedBlocks = filterData.selectedBlocks;
+    selectedVenues = filterData.selectedVenues || [];
+    selectedTrainers = filterData.selectedTrainers || [];
+    selectedReached = filterData.selectedReached || ['Yes', 'No'];
+    
+    // Restore UI and apply filters
+    restorePrimaryFilterUI();
+    
+    // Apply filters with a small delay to ensure UI is ready
+    setTimeout(() => {
+        applyPrimaryFilters().then(() => {
+            if (selectedVenues.length > 0 || selectedTrainers.length > 0 || selectedReached.length < 2) {
+                restoreSecondaryFilterUI();
+                applySecondaryFilters();
+            }
+        });
+    }, 100);
+}
+
+async function loadInitialFilterOptions() {
+    try {
+        showLoading('Loading filter options...');
+        
+        let query = supabase
+            .from('training_sessions')
+            .select('date, block, training_partner');
+        
+        if (userType !== 'LND') {
+            const partnerFilter = getTrainingPartnerForUser(userType);
+            query = query.eq('training_partner', partnerFilter);
+        }
+        
+        const { data, error } = await query;
+        
+        if (error) throw error;
+        
+        availableDates = [...new Set(data.map(item => item.date))].sort();
+        availableBlocks = [...new Set(data.map(item => item.block).filter(Boolean))].sort();
+        
+        if (selectedDates.length === 0) selectedDates = [];
+        if (selectedBlocks.length === 0) selectedBlocks = [];
+        
+        populateFilterOptions();
+        hideLoading();
+        
+    } catch (error) {
+        hideLoading();
+        showError('Failed to load filter options: ' + error.message);
+    }
+}
+
+// FIXED: Consolidated filter population
+function populateFilterOptions() {
+    populatePartnerFilter();
+    populateDateFilter();
+    populateBlockFilter();
+}
+
+function populatePartnerFilter() {
+    if (userType !== 'LND') return;
+    
+    partnerOptions.innerHTML = '';
+    availablePartners.forEach(partner => {
+        const isChecked = selectedPartners.includes(partner);
+        const option = document.createElement('div');
+        option.className = 'multiselect-option';
+        option.innerHTML = `
+            <input type="checkbox" id="partner-${partner.replace(/\s+/g, '-')}" 
+                class="partner-checkbox" value="${partner}" ${isChecked ? 'checked' : ''}>
+            <label for="partner-${partner.replace(/\s+/g, '-')}">${partner}</label>
+        `;
+        partnerOptions.appendChild(option);
+    });
+    
+    selectAllPartners.checked = selectedPartners.length === availablePartners.length;
+}
+
+function populateDateFilter() {
+    dateOptions.innerHTML = '';
+    availableDates.forEach(date => {
+        const isChecked = selectedDates.includes(date);
+        const formattedDate = formatDateToDDMMMYYYY(date);
+        const option = document.createElement('div');
+        option.className = 'multiselect-option';
+        option.innerHTML = `
+            <input type="checkbox" id="date-${date}" 
+                class="date-checkbox" value="${date}" ${isChecked ? 'checked' : ''}>
+            <label for="date-${date}">${formattedDate}</label>
+        `;
+        dateOptions.appendChild(option);
+    });
+    
+    selectAllDates.checked = selectedDates.length === availableDates.length;
+}
+
+function populateBlockFilter() {
+    blockOptions.innerHTML = '';
+    availableBlocks.forEach(block => {
+        const isChecked = selectedBlocks.includes(block);
+        const option = document.createElement('div');
+        option.className = 'multiselect-option';
+        option.innerHTML = `
+            <input type="checkbox" id="block-${block.replace(/\s+/g, '-')}" 
+                class="block-checkbox" value="${block}" ${isChecked ? 'checked' : ''}>
+            <label for="block-${block.replace(/\s+/g, '-')}">${block}</label>
+        `;
+        blockOptions.appendChild(option);
+    });
+    
+    selectAllBlocks.checked = selectedBlocks.length === availableBlocks.length;
+}
+
+function populateVenueFilter() {
+    venueOptions.innerHTML = '';
+    
+    let filteredVenues = availableVenues;
+    if (selectedTrainers.length > 0 && selectedTrainers.length < availableTrainers.length) {
+        const venuesFromSelectedTrainers = [...new Set(
+            allSessionData
+                .filter(session => selectedTrainers.includes(session.name))
+                .map(session => session.venue)
+                .filter(Boolean)
+        )];
+        filteredVenues = availableVenues.filter(venue => venuesFromSelectedTrainers.includes(venue));
+    }
+    
+    filteredVenues.forEach(venue => {
+        const isChecked = selectedVenues.includes(venue);
+        const option = document.createElement('div');
+        option.className = 'multiselect-option';
+        option.innerHTML = `
+            <input type="checkbox" id="venue-${venue.replace(/\s+/g, '-')}" 
+                class="venue-checkbox" value="${venue}" ${isChecked ? 'checked' : ''}>
+            <label for="venue-${venue.replace(/\s+/g, '-')}">${venue}</label>
+        `;
+        venueOptions.appendChild(option);
+    });
+    
+    selectAllVenues.checked = selectedVenues.length === filteredVenues.length && filteredVenues.length > 0;
+}
+
+function populateTrainerFilter() {
+    trainerOptions.innerHTML = '';
+    
+    let filteredTrainers = availableTrainers;
+    if (selectedVenues.length > 0 && selectedVenues.length < availableVenues.length) {
+        const trainersFromSelectedVenues = [...new Set(
+            allSessionData
+                .filter(session => selectedVenues.includes(session.venue))
+                .map(session => session.name)
+                .filter(Boolean)
+        )];
+        filteredTrainers = availableTrainers.filter(trainer => trainersFromSelectedVenues.includes(trainer));
+    }
+    
+    filteredTrainers.forEach(trainer => {
+        const isChecked = selectedTrainers.includes(trainer);
+        const option = document.createElement('div');
+        option.className = 'multiselect-option';
+        option.innerHTML = `
+            <input type="checkbox" id="trainer-${trainer.replace(/\s+/g, '-')}" 
+                class="trainer-checkbox" value="${trainer}" ${isChecked ? 'checked' : ''}>
+            <label for="trainer-${trainer.replace(/\s+/g, '-')}">${trainer}</label>
+        `;
+        trainerOptions.appendChild(option);
+    });
+    
+    selectAllTrainers.checked = selectedTrainers.length === filteredTrainers.length && filteredTrainers.length > 0;
+}
+
+function restoreSecondaryFilterUI() {
+    document.querySelectorAll('.reached-checkbox').forEach(cb => {
+        cb.checked = selectedReached.includes(cb.value);
+    });
+    selectAllReached.checked = selectedReached.length === availableReached.length;
+}
+
+function restorePrimaryFilterUI() {
+    populateFilterOptions();
+    
+    document.querySelectorAll('.session-checkbox').forEach(cb => {
+        cb.checked = selectedSessions.includes(cb.value);
+    });
+    selectAllSessions.checked = selectedSessions.length === 3;
+}
+
+function applySecondaryFiltersWithUpdate() {
+    applySecondaryFilters();
+    populateVenueFilter();
+    populateTrainerFilter();
+    saveCurrentFiltersEnhanced();
+}
+
+// Filter event listeners
+function initializeFilterListeners() {
+    const selectAllConfigs = [
+        { element: selectAllPartners, array: () => availablePartners, selected: () => selectedPartners, selector: '.partner-checkbox' },
+        { element: selectAllDates, array: () => availableDates, selected: () => selectedDates, selector: '.date-checkbox' },
+        { element: selectAllSessions, array: () => ['Session 1', 'Session 2', 'Session 3'], selected: () => selectedSessions, selector: '.session-checkbox' },
+        { element: selectAllBlocks, array: () => availableBlocks, selected: () => selectedBlocks, selector: '.block-checkbox' },
+        { element: selectAllVenues, array: () => availableVenues, selected: () => selectedVenues, selector: '.venue-checkbox' },
+        { element: selectAllTrainers, array: () => availableTrainers, selected: () => selectedTrainers, selector: '.trainer-checkbox' },
+        { element: selectAllReached, array: () => ['Yes', 'No'], selected: () => selectedReached, selector: '.reached-checkbox' }
+    ];
+
+    selectAllConfigs.forEach(config => {
+        config.element.addEventListener('change', function() {
+            const targetArray = config.selected();
+            targetArray.length = 0;
+            if (this.checked) {
+                targetArray.push(...config.array());
+            }
+            document.querySelectorAll(config.selector).forEach(cb => cb.checked = this.checked);
+        });
+    });
+}
+
+// Dynamic event listeners for checkboxes
+document.addEventListener('change', function(e) {
+    const handlers = {
+        'partner-checkbox': () => {
+            updateSelectedArray(selectedPartners, e.target.value, e.target.checked);
+            selectAllPartners.checked = selectedPartners.length === availablePartners.length;
+        },
+        'date-checkbox': () => {
+            updateSelectedArray(selectedDates, e.target.value, e.target.checked);
+            selectAllDates.checked = selectedDates.length === availableDates.length;
+        },
+        'session-checkbox': () => {
+            updateSelectedArray(selectedSessions, e.target.value, e.target.checked);
+            selectAllSessions.checked = selectedSessions.length === 3;
+        },
+        'block-checkbox': () => {
+            updateSelectedArray(selectedBlocks, e.target.value, e.target.checked);
+            selectAllBlocks.checked = selectedBlocks.length === availableBlocks.length;
+        },
+        'venue-checkbox': () => {
+            updateSelectedArray(selectedVenues, e.target.value, e.target.checked);
+            selectAllVenues.checked = selectedVenues.length === document.querySelectorAll('.venue-checkbox').length;
+            setTimeout(() => {
+                populateTrainerFilter();
+                saveCurrentFiltersEnhanced();
+            }, 100);
+        },
+        'trainer-checkbox': () => {
+            updateSelectedArray(selectedTrainers, e.target.value, e.target.checked);
+            selectAllTrainers.checked = selectedTrainers.length === document.querySelectorAll('.trainer-checkbox').length;
+            setTimeout(() => {
+                populateVenueFilter();
+                saveCurrentFiltersEnhanced();
+            }, 100);
+        },
+        'reached-checkbox': () => {
+            updateSelectedArray(selectedReached, e.target.value, e.target.checked);
+            selectAllReached.checked = selectedReached.length === availableReached.length;
+        }
+    };
+
+    // Find matching handler and execute
+    const handler = Object.keys(handlers).find(key => e.target.classList.contains(key));
+    if (handler) {
+        handlers[handler]();
+        if (!handler.includes('venue') && !handler.includes('trainer')) {
+            saveCurrentFiltersEnhanced();
+        }
+    }
+});
+
+function updateSelectedArray(array, value, isChecked) {
+    if (isChecked && !array.includes(value)) {
+        array.push(value);
+    } else if (!isChecked) {
+        const index = array.indexOf(value);
+        if (index > -1) {
+            array.splice(index, 1);
+        }
+    }
+}
+
+// Filter application functions
+async function applyPrimaryFilters() {
+    // Validation
+    const validationErrors = [];
+    if (userType === 'LND' && selectedPartners.length === 0) {
+        validationErrors.push('Please select at least one Training Partner');
+    }
+    if (selectedDates.length === 0) {
+        validationErrors.push('Please select at least one Date');
+    }
+    if (selectedSessions.length === 0) {
+        validationErrors.push('Please select at least one Session');
+    }
+    
+    if (validationErrors.length > 0) {
+        showError(validationErrors[0]);
+        return Promise.reject('Validation failed');
+    }
+    
+    try {
+        showLoading('Loading session data...');
+        
+        let query = supabase.from('training_sessions').select('*');
+        
+        if (userType !== 'LND') {
+            query = query.eq('training_partner', getTrainingPartnerForUser(userType));
+        } else {
+            query = query.in('training_partner', selectedPartners);
+        }
+        
+        query = query.in('date', selectedDates).in('session', selectedSessions);
+        
+        if (selectedBlocks.length > 0) {
+            query = query.in('block', selectedBlocks);
+        }
+        
+        const { data, error } = await query;
+        
+        if (error) throw error;
+        
+        allSessionData = data || [];
+        
+        availableVenues = [...new Set(allSessionData.map(item => item.venue).filter(Boolean))].sort();
+        availableTrainers = [...new Set(allSessionData.map(item => item.name).filter(Boolean))].sort();
+        
+        selectedVenues = [...availableVenues];
+        selectedTrainers = [...availableTrainers];
+        selectedReached = ['Yes', 'No'];
+        
+        populateVenueFilter();
+        populateTrainerFilter();
+        updateSecondaryFilterUI();
+        
+        // Only show secondary filters if filters aren't supposed to be hidden
+        const filtersHidden = sessionStorage.getItem('filtersHidden');
+        if (filtersHidden !== 'true') {
+            secondaryFilters.style.display = 'block';
+        }
+        applySecondaryFilters();
+
+        // Save filters with enhanced method
+        saveCurrentFiltersEnhanced();
+
+        setupRealtimeSubscription();
+        hideLoading();
+        return Promise.resolve();
+        
+    } catch (error) {
+        hideLoading();
+        showError('Failed to load data: ' + error.message);
+        return Promise.reject(error);
+    }
+}
+
+function applySecondaryFilters() {
+    filteredSessionData = allSessionData.filter(session => {
+        const venueMatch = selectedVenues.length === 0 || selectedVenues.includes(session.venue);
+        const trainerMatch = selectedTrainers.length === 0 || selectedTrainers.includes(session.name);
+        const reachedMatch = selectedReached.length === 0 || selectedReached.includes(session.reached || 'No');
+        return venueMatch && trainerMatch && reachedMatch;
+    });
+
+    filteredSessionData.sort((a, b) => {
+        const venueA = (a.venue || '').toLowerCase();
+        const venueB = (b.venue || '').toLowerCase();
+        return venueA.localeCompare(venueB);
+    });
+    
+    updateTable();
+    updateStats();
+    
+    document.querySelectorAll('.session-table-container, .stats-grid')
+        .forEach(el => el.style.display = 'block');
+}
+
+function clearAllFilters() {
+    sessionStorage.removeItem('savedFilters');
+    localStorage.removeItem('savedFilters');
+
+    selectedPartners = userType === 'LND' ? ['FACE', 'Six Phrase'] : [getTrainingPartnerForUser(userType)];
+    selectedDates = [];
+    selectedSessions = [];
+    selectedBlocks = [];
+    selectedVenues = [];
+    selectedTrainers = [];
+    selectedReached = ['Yes', 'No'];
+    
+    // Reset UI
+    document.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+        const checkboxTypes = {
+            'partner-checkbox': selectedPartners.includes(cb.value),
+            'date-checkbox': selectedDates.includes(cb.value),
+            'session-checkbox': selectedSessions.includes(cb.value),
+            'block-checkbox': selectedBlocks.includes(cb.value),
+            'reached-checkbox': selectedReached.includes(cb.value)
+        };
+        
+        const matchingType = Object.keys(checkboxTypes).find(type => cb.classList.contains(type));
+        cb.checked = matchingType ? checkboxTypes[matchingType] : false;
+    });
+    
+    // Update select all checkboxes
+    selectAllPartners.checked = selectedPartners.length === availablePartners.length;
+    selectAllDates.checked = selectedDates.length === availableDates.length;
+    selectAllSessions.checked = selectedSessions.length === 3;
+    selectAllReached.checked = selectedReached.length === availableReached.length;
+    selectAllBlocks.checked = selectedBlocks.length === availableBlocks.length;
+    selectAllVenues.checked = false;
+    selectAllTrainers.checked = false;
+    
+    // Show filters and update toggle button
+    const toggleButton = document.getElementById('toggleFilters');
+    if (toggleButton) {
+        toggleButton.innerHTML = '<i class="fas fa-filter"></i> Hide Filters';
+        document.querySelector('.filter-section').style.display = 'block';
+        sessionStorage.setItem('filtersHidden', 'false');
+    }
+    
+    // Hide secondary filters and table
+    secondaryFilters.style.display = 'none';
+    document.querySelectorAll('.session-table-container, .stats-grid')
+        .forEach(el => el.style.display = 'none');
+    
+    // Clear data
+    allSessionData = [];
+    filteredSessionData = [];
+    availableVenues = [];
+    availableTrainers = [];
+    availableBlocks = [];
+}
+
+function updateTable() {
+    sessionTableBody.innerHTML = '';
+    
+    // Show/hide training partner column based on user type
+    const partnerColumn = document.getElementById('partnerColumn');
+    if (userType === 'LND') {
+        partnerColumn.style.display = 'table-cell';
+    } else {
+        partnerColumn.style.display = 'none';
+    }
+    
+    filteredSessionData.forEach(session => {
+        const row = document.createElement('tr');
+        if (session.reached === 'Yes') {
+            row.className = 'reached';
+        }
+        
+        let rowHTML = `<td class="trainer-name">${session.name}</td>`;
+        
+        if (userType === 'LND') {
+            rowHTML += `<td class="training-partner">${session.training_partner}</td>`;
+        }
+        
+        rowHTML += `
+            <td class="venue">${session.venue || 'N/A'}</td>
+            <td class="phone-column">
+                <a href="tel:${session.mobile_number}" class="phone-call-btn" title="Call">
+                    <i class="fas fa-phone"></i>
+                </a>
+            </td>
+            <td class="reach-column">
+                <label class="toggle-switch">
+                    <input type="checkbox" class="reach-toggle" 
+                        data-id="${session.id}"
+                        ${session.reached === 'Yes' ? 'checked' : ''}>
+                    <span class="toggle-slider"></span>
+                </label>
+            </td>
+            <td class="details-column">
+                <button class="details-btn" data-id="${session.id}">
+                    <i class="fas fa-info-circle"></i>
+                </button>
+            </td>
+        `;
+        
+        row.innerHTML = rowHTML;
+        sessionTableBody.appendChild(row);
+    });
+    
+    // Add event listeners
+    document.querySelectorAll('.reach-toggle').forEach(toggle => {
+        toggle.addEventListener('change', updateReachedStatus);
+    });
+    
+    document.querySelectorAll('.details-btn').forEach(btn => {
+        btn.addEventListener('click', showSessionDetails);
+    });
+}
+
+async function updateReachedStatus(e) {
+    const sessionId = e.target.dataset.id;
+    const reached = e.target.checked ? 'Yes' : 'No';
+    
+    try {
+        showLoading('Updating status...');
+        
+        const istTime = new Date().toLocaleString("en-US", {timeZone: "Asia/Kolkata"});
+        const istDate = new Date(istTime).toISOString();
+        
+        const { error } = await supabase
+            .from('training_sessions')
+            .update({ 
+                reached: reached,
+                time_of_updation: istDate
+            })
+            .eq('id', sessionId);
+        
+        if (error) throw error;
+        
+        // Update local data
+        const sessionIndex = filteredSessionData.findIndex(s => s.id.toString() === sessionId);
+        if (sessionIndex !== -1) {
+            filteredSessionData[sessionIndex].reached = reached;
+            filteredSessionData[sessionIndex].time_of_updation = istDate;
+            
+            const row = e.target.closest('tr');
+            if (reached === 'Yes') {
+                row.classList.add('reached');
+            } else {
+                row.classList.remove('reached');
+            }
+        }
+        
+        updateStats();
+        hideLoading();
+        
+    } catch (error) {
+        hideLoading();
+        showError('Failed to update status: ' + error.message);
+        e.target.checked = !e.target.checked;
+    }
+}
+
+function showSessionDetails(e) {
+    const sessionId = e.target.closest('button').dataset.id;
+    const session = filteredSessionData.find(s => s.id.toString() === sessionId);
+    
+    if (session) {
+        const formattedDate = formatDateToDDMMMYYYY(session.date);
+        const updatedTime = session.time_of_updation ? 
+            new Date(session.time_of_updation).toLocaleString('en-GB') : 'Never';
+        
+        sessionDetailsContent.innerHTML = `
+            <div class="detail-item">
+                <span class="detail-label">Trainer Name:</span>
+                <span class="detail-value">${session.name}</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">Training Partner:</span>
+                <span class="detail-value">${session.training_partner}</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">Date:</span>
+                <span class="detail-value">${formattedDate}</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">Session:</span>
+                <span class="detail-value">${session.session}</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">Topic:</span>
+                <span class="detail-value">${session.topic || 'N/A'}</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">Department:</span>
+                <span class="detail-value">${session.department || 'N/A'}</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">Students:</span>
+                <span class="detail-value">${session.no_of_students || 'N/A'}</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">Venue:</span>
+                <span class="detail-value">${session.venue || 'N/A'}</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">Mobile Number:</span>
+                <span class="detail-value">
+                    <a href="tel:${session.mobile_number}" class="phone-number-link">
+                        <i class="fas fa-phone"></i> ${session.mobile_number}
+                    </a>
+                </span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">Last Updated:</span>
+                <span class="detail-value">${updatedTime}</span>
+            </div>
+        `;
+        
+        sessionDetailsModal.classList.remove('hidden');
+    }
+}
+
+function closeModal() {
+    sessionDetailsModal.classList.add('hidden');
+}
+
+// Click outside modal to close
+document.addEventListener('click', function(e) {
+    if (e.target === sessionDetailsModal) {
+        closeModal();
+    }
+});
+
+function updateStats() {
+    const totalSessions = filteredSessionData.length;
+    const sessionsReached = filteredSessionData.filter(session => session.reached === 'Yes').length;
+    const sessionsYetToReach = totalSessions - sessionsReached;
+    
+    totalTrainersEl.textContent = totalSessions;
+    trainersReachedEl.textContent = sessionsReached;
+    trainersYetToReachEl.textContent = sessionsYetToReach;
+}
+
+function toggleInstructions() {
+    instructionsContent.classList.toggle('hidden');
+    
+    if (instructionsContent.classList.contains('hidden')) {
+        toggleInstructionsBtn.innerHTML = 'Show <i class="fas fa-chevron-down"></i>';
+        sessionStorage.setItem('instructionsHidden', 'true');
+    } else {
+        toggleInstructionsBtn.innerHTML = 'Hide <i class="fas fa-chevron-up"></i>';
+        sessionStorage.setItem('instructionsHidden', 'false');
+    }
+}
+
+function setupRealtimeSubscription() {
+    if (realtimeSubscription) {
+        realtimeSubscription.unsubscribe();
+    }
+    
+    realtimeSubscription = supabase
+        .channel('training_sessions_changes')
+        .on('postgres_changes', {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'training_sessions'
+        }, (payload) => {
+            const updatedSession = payload.new;
+            
+            const sessionIndex = filteredSessionData.findIndex(s => s.id === updatedSession.id);
+            if (sessionIndex !== -1) {
+                filteredSessionData[sessionIndex] = updatedSession;
+                updateTableRow(updatedSession);
+                updateStats();
+            }
+        })
+        .subscribe();
+}
+
+function updateTableRow(session) {
+    const toggleElement = document.querySelector(`input[data-id="${session.id}"]`);
+    if (toggleElement) {
+        const wasChecked = toggleElement.checked;
+        toggleElement.checked = session.reached === 'Yes';
+        
+        const row = toggleElement.closest('tr');
+        if (session.reached === 'Yes') {
+            row.classList.add('reached');
+        } else {
+            row.classList.remove('reached');
+        }
+        
+        if (wasChecked !== toggleElement.checked) {
+            showBriefNotification(`${session.name} status updated by another user`);
+        }
+    }
+}
+
+function showBriefNotification(message) {
+    const notification = document.createElement('div');
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: #4CAF50;
+        color: white;
+        padding: 10px 20px;
+        border-radius: 5px;
+        z-index: 1001;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    `;
+    notification.textContent = message;
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+        notification.remove();
+    }, 3000);
+}
+
+function updateSecondaryFilterUI() {
+    // Update venue filter UI
+    selectAllVenues.checked = true;
+    document.querySelectorAll('.venue-checkbox').forEach(cb => {
+        cb.checked = true;
+    });
+    
+    // Update trainer filter UI  
+    selectAllTrainers.checked = true;
+    document.querySelectorAll('.trainer-checkbox').forEach(cb => {
+        cb.checked = true;
+    });
+    
+    // Update reached filter UI
+    selectAllReached.checked = true;
+    document.querySelectorAll('.reached-checkbox').forEach(cb => {
+        cb.checked = true;
+    });
+}
