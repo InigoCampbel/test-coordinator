@@ -440,38 +440,55 @@ function showMainContent() {
 function createToggleButton() {
     const filterSection = document.querySelector('.filter-section');
     const secondaryFilterSection = document.querySelector('.secondary-filter-section');
+    const sessionTableContainer = document.querySelector('.session-table-container');
 
-    if (!document.getElementById('toggleFilters')) {
-        const toggleButton = document.createElement('button');
-        toggleButton.id = 'toggleFilters';
-        toggleButton.className = 'toggle-filters-btn';
-        toggleButton.innerHTML = '<i class="fas fa-filter"></i> Hide Filters';
-        toggleButton.style.display = 'none'; // Initially hidden
-        
-        // Insert the toggle button RIGHT AFTER the secondary filter section
-        secondaryFilterSection.insertAdjacentElement('afterend', toggleButton);
-        
-        toggleButton.addEventListener('click', function() {
-            const isHidden = filterSection.style.display === 'none';
-            
-            if (isHidden) {
-                filterSection.style.display = 'block';
-                
-                const hasLoadedData = allSessionData && allSessionData.length > 0;
-                if (hasLoadedData) {
-                    secondaryFilterSection.style.display = 'block';
-                }
-                
-                this.innerHTML = '<i class="fas fa-filter"></i> Hide Filters';
-                sessionStorage.setItem('filtersHidden', 'false');
-            } else {
-                filterSection.style.display = 'none';
-                secondaryFilterSection.style.display = 'none';
-                this.innerHTML = '<i class="fas fa-filter"></i> Show Filters';
-                sessionStorage.setItem('filtersHidden', 'true');
-            }
-        });
+    // Remove existing button if it exists
+    const existingButton = document.getElementById('toggleFilters');
+    if (existingButton) {
+        existingButton.remove();
     }
+
+    const toggleButton = document.createElement('button');
+    toggleButton.id = 'toggleFilters';
+    toggleButton.className = 'toggle-filters-btn';
+    toggleButton.innerHTML = '<i class="fas fa-filter"></i> Hide Filters';
+    toggleButton.style.display = 'none'; // Initially hidden
+    toggleButton.style.margin = '20px 0';
+    toggleButton.style.width = '200px';
+    
+    // Try multiple positioning strategies
+    if (secondaryFilterSection && sessionTableContainer) {
+        // Strategy 1: Insert between secondary filters and table
+        secondaryFilterSection.parentNode.insertBefore(toggleButton, sessionTableContainer);
+    } else if (secondaryFilterSection) {
+        // Strategy 2: Insert after secondary filters
+        secondaryFilterSection.insertAdjacentElement('afterend', toggleButton);
+    } else {
+        // Strategy 3: Fallback - append to dashboard container
+        const dashboardContainer = document.getElementById('dashboardContainer');
+        dashboardContainer.appendChild(toggleButton);
+    }
+    
+    toggleButton.addEventListener('click', function() {
+        const isHidden = filterSection.style.display === 'none';
+        
+        if (isHidden) {
+            filterSection.style.display = 'block';
+            
+            const hasLoadedData = allSessionData && allSessionData.length > 0;
+            if (hasLoadedData) {
+                secondaryFilterSection.style.display = 'block';
+            }
+            
+            this.innerHTML = '<i class="fas fa-filter"></i> Hide Filters';
+            sessionStorage.setItem('filtersHidden', 'false');
+        } else {
+            filterSection.style.display = 'none';
+            secondaryFilterSection.style.display = 'none';
+            this.innerHTML = '<i class="fas fa-filter"></i> Show Filters';
+            sessionStorage.setItem('filtersHidden', 'true');
+        }
+    });
 }
 
 
@@ -495,13 +512,11 @@ function setupUserInterface() {
         selectedPartners = [...availablePartners];
     }
 
-    // Create toggle button
-    createToggleButton();
+    // DON'T create toggle button here - wait until after data is loaded
+    // createToggleButton(); // REMOVED
     
-    // FIXED: Apply UI states IMMEDIATELY before any async operations
     applyStoredUIStates();
 
-    // Load initial options and handle saved filters
     loadInitialFilterOptions().then(() => {
         handleSavedFilters();
     });
@@ -889,19 +904,20 @@ async function applyPrimaryFilters() {
         populateTrainerFilter();
         updateSecondaryFilterUI();
         
-        // Only show secondary filters if filters aren't supposed to be hidden
+        // Show secondary filters first
         const filtersHidden = sessionStorage.getItem('filtersHidden');
         if (filtersHidden !== 'true') {
             secondaryFilters.style.display = 'block';
         }
+        
+        // IMPORTANT: Wait for DOM to update, then create/show toggle button
+        setTimeout(() => {
+            createToggleButton(); // Recreate button after secondary filters are shown
+            showToggleButton();
+        }, 100);
+        
         applySecondaryFilters();
-
-        // Show the toggle button after successful data load
-        showToggleButton();
-
-        // Save filters with enhanced method
         saveCurrentFiltersEnhanced();
-
         setupRealtimeSubscription();
         hideLoading();
         return Promise.resolve();
