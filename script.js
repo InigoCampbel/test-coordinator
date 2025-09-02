@@ -446,8 +446,10 @@ function createToggleButton() {
         toggleButton.id = 'toggleFilters';
         toggleButton.className = 'toggle-filters-btn';
         toggleButton.innerHTML = '<i class="fas fa-filter"></i> Hide Filters';
+        toggleButton.style.display = 'none'; // Initially hidden
         
-        filterSection.parentNode.insertBefore(toggleButton, filterSection);
+        // Insert the toggle button after the secondary filter section
+        secondaryFilterSection.parentNode.insertBefore(toggleButton, secondaryFilterSection.nextSibling);
         
         toggleButton.addEventListener('click', function() {
             const isHidden = filterSection.style.display === 'none';
@@ -469,6 +471,14 @@ function createToggleButton() {
                 sessionStorage.setItem('filtersHidden', 'true');
             }
         });
+    }
+}
+
+
+function showToggleButton() {
+    const toggleButton = document.getElementById('toggleFilters');
+    if (toggleButton) {
+        toggleButton.style.display = 'inline-block';
     }
 }
 
@@ -886,6 +896,9 @@ async function applyPrimaryFilters() {
         }
         applySecondaryFilters();
 
+        // Show the toggle button after successful data load
+        showToggleButton();
+
         // Save filters with enhanced method
         saveCurrentFiltersEnhanced();
 
@@ -956,13 +969,15 @@ function clearAllFilters() {
     selectAllVenues.checked = false;
     selectAllTrainers.checked = false;
     
-    // Show filters and update toggle button
+    // Hide the toggle button when clearing filters
     const toggleButton = document.getElementById('toggleFilters');
     if (toggleButton) {
-        toggleButton.innerHTML = '<i class="fas fa-filter"></i> Hide Filters';
-        document.querySelector('.filter-section').style.display = 'block';
-        sessionStorage.setItem('filtersHidden', 'false');
+        toggleButton.style.display = 'none';
     }
+    
+    // Show filters
+    document.querySelector('.filter-section').style.display = 'block';
+    sessionStorage.setItem('filtersHidden', 'false');
     
     // Hide secondary filters and table
     secondaryFilters.style.display = 'none';
