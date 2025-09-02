@@ -467,6 +467,20 @@ function createToggleButton() {
         dashboardContainer.appendChild(toggleButton);
     }
     
+    // Check for pending button state and apply it
+    const pendingState = sessionStorage.getItem('pendingToggleButtonState');
+    if (pendingState) {
+        if (pendingState === 'Show Filters') {
+            toggleButton.innerHTML = '<i class="fas fa-filter"></i> Show Filters';
+            // Filters should already be hidden by applyStoredUIStates()
+        } else if (pendingState === 'Hide Filters') {
+            toggleButton.innerHTML = '<i class="fas fa-filter"></i> Hide Filters';
+            // Filters should already be shown by applyStoredUIStates()
+        }
+        // Clear the pending state
+        sessionStorage.removeItem('pendingToggleButtonState');
+    }
+    
     toggleButton.addEventListener('click', function() {
         const isHidden = filterSection.style.display === 'none';
         
@@ -532,23 +546,28 @@ function applyStoredUIStates() {
         toggleInstructionsBtn.innerHTML = 'Hide <i class="fas fa-chevron-up"></i>';
     }
     
-    // Filter visibility state
+    // Filter visibility state - handle without requiring toggle button to exist
     const filtersHidden = sessionStorage.getItem('filtersHidden');
-    const toggleButton = document.getElementById('toggleFilters');
     const filterSection = document.querySelector('.filter-section');
     const secondaryFilterSection = document.querySelector('.secondary-filter-section');
     
     // Check if saved filters exist to determine if secondary filters should be shown
     const hasSavedFilters = restoreFiltersFromStorage();
     
-    if (filtersHidden === 'true' && toggleButton) {
+    if (filtersHidden === 'true') {
+        // Hide filters immediately
         filterSection.style.display = 'none';
         secondaryFilterSection.style.display = 'none';
-        toggleButton.innerHTML = '<i class="fas fa-filter"></i> Show Filters';
-    } else if (filtersHidden === 'false' && toggleButton && hasSavedFilters) {
+        
+        // Store the button state to apply later when button is created
+        sessionStorage.setItem('pendingToggleButtonState', 'Show Filters');
+    } else if (filtersHidden === 'false' && hasSavedFilters) {
+        // Show primary filters
         filterSection.style.display = 'block';
         // Don't show secondary filters yet - let the data loading process handle it
-        toggleButton.innerHTML = '<i class="fas fa-filter"></i> Hide Filters';
+        
+        // Store the button state to apply later when button is created
+        sessionStorage.setItem('pendingToggleButtonState', 'Hide Filters');
     }
 }
 
