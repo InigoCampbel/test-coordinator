@@ -448,9 +448,8 @@ function createToggleButton() {
         toggleButton.innerHTML = '<i class="fas fa-filter"></i> Hide Filters';
         toggleButton.style.display = 'none'; // Initially hidden
         
-        // Insert the toggle button after the secondary filter section
-        const dashboardContainer = document.getElementById('dashboardContainer');
-        dashboardContainer.insertBefore(toggleButton, document.querySelector('.session-table-container'));
+        // Insert the toggle button RIGHT AFTER the secondary filter section
+        secondaryFilterSection.insertAdjacentElement('afterend', toggleButton);
         
         toggleButton.addEventListener('click', function() {
             const isHidden = filterSection.style.display === 'none';
