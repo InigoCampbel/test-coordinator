@@ -453,8 +453,6 @@ function createToggleButton() {
     toggleButton.className = 'toggle-filters-btn';
     toggleButton.innerHTML = '<i class="fas fa-filter"></i> Hide Filters';
     toggleButton.style.display = 'none'; // Initially hidden
-    toggleButton.style.margin = '20px 0';
-    toggleButton.style.width = '200px';
     
     // Try multiple positioning strategies
     if (secondaryFilterSection && sessionTableContainer) {
