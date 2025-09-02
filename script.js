@@ -716,19 +716,8 @@ function populateBlockFilter() {
 function populateVenueFilter() {
     venueOptions.innerHTML = '';
     
-    let filteredVenues = availableVenues;
-    if (selectedTrainers.length > 0 && selectedTrainers.length < availableTrainers.length) {
-        const venuesFromSelectedTrainers = [...new Set(
-            allSessionData
-                .filter(session => selectedTrainers.includes(session.name))
-                .map(session => session.venue)
-                .filter(Boolean)
-        )];
-        filteredVenues = availableVenues.filter(venue => venuesFromSelectedTrainers.includes(venue));
-    }
-    
-    filteredVenues.forEach(venue => {
-        // FIXED: Check against actual selectedVenues array
+    // REMOVE cross-filtering logic - always show all available venues
+    availableVenues.forEach(venue => {
         const isChecked = selectedVenues.includes(venue);
         const option = document.createElement('div');
         option.className = 'multiselect-option';
@@ -740,29 +729,17 @@ function populateVenueFilter() {
         venueOptions.appendChild(option);
     });
     
-    // FIXED: Calculate based on actual selections and visible options
-    const visibleVenueCheckboxes = document.querySelectorAll('.venue-checkbox');
-    const checkedVenueCount = Array.from(visibleVenueCheckboxes).filter(cb => cb.checked).length;
-    selectAllVenues.checked = checkedVenueCount === visibleVenueCheckboxes.length && visibleVenueCheckboxes.length > 0;
+    const allVenueCheckboxes = document.querySelectorAll('.venue-checkbox');
+    const checkedVenueCount = Array.from(allVenueCheckboxes).filter(cb => cb.checked).length;
+    selectAllVenues.checked = checkedVenueCount === allVenueCheckboxes.length && allVenueCheckboxes.length > 0;
 }
 
 
 function populateTrainerFilter() {
     trainerOptions.innerHTML = '';
     
-    let filteredTrainers = availableTrainers;
-    if (selectedVenues.length > 0 && selectedVenues.length < availableVenues.length) {
-        const trainersFromSelectedVenues = [...new Set(
-            allSessionData
-                .filter(session => selectedVenues.includes(session.venue))
-                .map(session => session.name)
-                .filter(Boolean)
-        )];
-        filteredTrainers = availableTrainers.filter(trainer => trainersFromSelectedVenues.includes(trainer));
-    }
-    
-    filteredTrainers.forEach(trainer => {
-        // FIXED: Check against actual selectedTrainers array
+    // REMOVE cross-filtering logic - always show all available trainers
+    availableTrainers.forEach(trainer => {
         const isChecked = selectedTrainers.includes(trainer);
         const option = document.createElement('div');
         option.className = 'multiselect-option';
@@ -774,10 +751,9 @@ function populateTrainerFilter() {
         trainerOptions.appendChild(option);
     });
     
-    // FIXED: Calculate based on actual selections and visible options
-    const visibleTrainerCheckboxes = document.querySelectorAll('.trainer-checkbox');
-    const checkedTrainerCount = Array.from(visibleTrainerCheckboxes).filter(cb => cb.checked).length;
-    selectAllTrainers.checked = checkedTrainerCount === visibleTrainerCheckboxes.length && visibleTrainerCheckboxes.length > 0;
+    const allTrainerCheckboxes = document.querySelectorAll('.trainer-checkbox');
+    const checkedTrainerCount = Array.from(allTrainerCheckboxes).filter(cb => cb.checked).length;
+    selectAllTrainers.checked = checkedTrainerCount === allTrainerCheckboxes.length && allTrainerCheckboxes.length > 0;
 }
 
 function restoreSecondaryFilterUI() {
@@ -854,32 +830,22 @@ document.addEventListener('change', function(e) {
         'venue-checkbox': () => {
             updateSelectedArray(selectedVenues, e.target.value, e.target.checked);
             
-            // FIXED: Update select all based on currently visible checkboxes
             const visibleVenueCheckboxes = document.querySelectorAll('.venue-checkbox');
             const checkedVenueCount = Array.from(visibleVenueCheckboxes).filter(cb => cb.checked).length;
             selectAllVenues.checked = checkedVenueCount === visibleVenueCheckboxes.length && visibleVenueCheckboxes.length > 0;
             
-            // Update trainer filter and apply changes
-            setTimeout(() => {
-                populateTrainerFilter();
-                applySecondaryFilters();
-                saveCurrentFiltersEnhanced();
-            }, 50);
+            // REMOVE the automatic cross-filtering - just save the selection
+            saveCurrentFiltersEnhanced();
         },
         'trainer-checkbox': () => {
             updateSelectedArray(selectedTrainers, e.target.value, e.target.checked);
             
-            // FIXED: Update select all based on currently visible checkboxes
             const visibleTrainerCheckboxes = document.querySelectorAll('.trainer-checkbox');
             const checkedTrainerCount = Array.from(visibleTrainerCheckboxes).filter(cb => cb.checked).length;
             selectAllTrainers.checked = checkedTrainerCount === visibleTrainerCheckboxes.length && visibleTrainerCheckboxes.length > 0;
             
-            // Update venue filter and apply changes
-            setTimeout(() => {
-                populateVenueFilter();
-                applySecondaryFilters();
-                saveCurrentFiltersEnhanced();
-            }, 50);
+            // REMOVE the automatic cross-filtering - just save the selection
+            saveCurrentFiltersEnhanced();
         },
         'reached-checkbox': () => {
             updateSelectedArray(selectedReached, e.target.value, e.target.checked);
@@ -954,33 +920,43 @@ async function applyPrimaryFilters() {
         availableVenues = [...new Set(allSessionData.map(item => item.venue).filter(Boolean))].sort();
         availableTrainers = [...new Set(allSessionData.map(item => item.name).filter(Boolean))].sort();
         
-        // FIXED: Better handling of secondary filter initialization
+        // ALWAYS initialize secondary filters as "all selected" when loading new primary data
         const savedFilters = restoreFiltersFromStorage();
-        let hasRestoredSecondaryFilters = false;
+        let shouldRestoreSecondaryFilters = false;
         
         if (savedFilters) {
             const filterData = JSON.parse(savedFilters);
-            // Check if we have meaningful secondary filter selections saved
-            if (filterData.selectedVenues && filterData.selectedVenues.length > 0) {
-                selectedVenues = filterData.selectedVenues.filter(venue => availableVenues.includes(venue));
-                hasRestoredSecondaryFilters = true;
-            }
-            if (filterData.selectedTrainers && filterData.selectedTrainers.length > 0) {
-                selectedTrainers = filterData.selectedTrainers.filter(trainer => availableTrainers.includes(trainer));
-                hasRestoredSecondaryFilters = true;
-            }
-            if (filterData.selectedReached) {
-                selectedReached = filterData.selectedReached;
-                hasRestoredSecondaryFilters = true;
+            // Only restore if we're applying the exact same primary filters
+            const primaryFiltersMatch = 
+                JSON.stringify(selectedPartners.sort()) === JSON.stringify((filterData.selectedPartners || []).sort()) &&
+                JSON.stringify(selectedDates.sort()) === JSON.stringify((filterData.selectedDates || []).sort()) &&
+                JSON.stringify(selectedSessions.sort()) === JSON.stringify((filterData.selectedSessions || []).sort()) &&
+                JSON.stringify(selectedBlocks.sort()) === JSON.stringify((filterData.selectedBlocks || []).sort());
+            
+            if (primaryFiltersMatch) {
+                // Restore secondary filters only if they match current available options
+                if (filterData.selectedVenues && filterData.selectedVenues.length > 0) {
+                    selectedVenues = filterData.selectedVenues.filter(venue => availableVenues.includes(venue));
+                    shouldRestoreSecondaryFilters = true;
+                }
+                if (filterData.selectedTrainers && filterData.selectedTrainers.length > 0) {
+                    selectedTrainers = filterData.selectedTrainers.filter(trainer => availableTrainers.includes(trainer));
+                    shouldRestoreSecondaryFilters = true;
+                }
+                if (filterData.selectedReached) {
+                    selectedReached = filterData.selectedReached;
+                    shouldRestoreSecondaryFilters = true;
+                }
             }
         }
         
-        // FIXED: Only set to "all selected" if no saved filters exist
-        if (!hasRestoredSecondaryFilters) {
+        // If no matching saved filters, initialize as "all selected"
+        if (!shouldRestoreSecondaryFilters) {
             selectedVenues = [...availableVenues];
             selectedTrainers = [...availableTrainers];
             selectedReached = ['Yes', 'No'];
         }
+        
         
         // FIXED: Use the corrected updateSecondaryFilterUI
         updateSecondaryFilterUI();
