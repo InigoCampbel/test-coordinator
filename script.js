@@ -910,12 +910,37 @@ async function applyPrimaryFilters() {
         
         allSessionData = data || [];
         
-        availableVenues = [...new Set(allSessionData.map(item => item.venue).filter(Boolean))].sort();
-        availableTrainers = [...new Set(allSessionData.map(item => item.name).filter(Boolean))].sort();
+        // Get new available options
+        const newAvailableVenues = [...new Set(allSessionData.map(item => item.venue).filter(Boolean))].sort();
+        const newAvailableTrainers = [...new Set(allSessionData.map(item => item.name).filter(Boolean))].sort();
         
-        selectedVenues = [...availableVenues];
-        selectedTrainers = [...availableTrainers];
-        selectedReached = ['Yes', 'No'];
+        // Check if we have existing secondary filter selections (from saved filters)
+        const hasExistingVenueSelections = selectedVenues.length > 0;
+        const hasExistingTrainerSelections = selectedTrainers.length > 0;
+        const hasExistingReachedSelections = selectedReached.length > 0;
+        
+        // Update available options
+        availableVenues = newAvailableVenues;
+        availableTrainers = newAvailableTrainers;
+        
+        // Only reset selections if no existing selections OR if existing selections are invalid
+        if (!hasExistingVenueSelections || !selectedVenues.some(venue => availableVenues.includes(venue))) {
+            selectedVenues = [...availableVenues];
+        } else {
+            // Filter out any venues that are no longer available
+            selectedVenues = selectedVenues.filter(venue => availableVenues.includes(venue));
+        }
+        
+        if (!hasExistingTrainerSelections || !selectedTrainers.some(trainer => availableTrainers.includes(trainer))) {
+            selectedTrainers = [...availableTrainers];
+        } else {
+            // Filter out any trainers that are no longer available
+            selectedTrainers = selectedTrainers.filter(trainer => availableTrainers.includes(trainer));
+        }
+        
+        if (!hasExistingReachedSelections) {
+            selectedReached = ['Yes', 'No'];
+        }
         
         populateVenueFilter();
         populateTrainerFilter();
@@ -1286,21 +1311,23 @@ function showBriefNotification(message) {
 }
 
 function updateSecondaryFilterUI() {
-    // Update venue filter UI
-    selectAllVenues.checked = true;
-    document.querySelectorAll('.venue-checkbox').forEach(cb => {
-        cb.checked = true;
+    // Update venue filter UI based on current selections
+    const visibleVenueCheckboxes = document.querySelectorAll('.venue-checkbox');
+    selectAllVenues.checked = selectedVenues.length === visibleVenueCheckboxes.length && visibleVenueCheckboxes.length > 0;
+    visibleVenueCheckboxes.forEach(cb => {
+        cb.checked = selectedVenues.includes(cb.value);
     });
     
-    // Update trainer filter UI  
-    selectAllTrainers.checked = true;
-    document.querySelectorAll('.trainer-checkbox').forEach(cb => {
-        cb.checked = true;
+    // Update trainer filter UI based on current selections
+    const visibleTrainerCheckboxes = document.querySelectorAll('.trainer-checkbox');
+    selectAllTrainers.checked = selectedTrainers.length === visibleTrainerCheckboxes.length && visibleTrainerCheckboxes.length > 0;
+    visibleTrainerCheckboxes.forEach(cb => {
+        cb.checked = selectedTrainers.includes(cb.value);
     });
     
-    // Update reached filter UI
-    selectAllReached.checked = true;
+    // Update reached filter UI based on current selections
+    selectAllReached.checked = selectedReached.length === availableReached.length;
     document.querySelectorAll('.reached-checkbox').forEach(cb => {
-        cb.checked = true;
+        cb.checked = selectedReached.includes(cb.value);
     });
 }
