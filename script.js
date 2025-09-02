@@ -97,11 +97,11 @@ function saveUserSession(user, userTypeValue) {
         // Set expiration to 8 hours
         expiresAt: Date.now() + (8 * 60 * 60 * 1000)
     };
-    
+
     // Use both sessionStorage and localStorage for redundancy
     sessionStorage.setItem('currentUser', JSON.stringify(user));
     localStorage.setItem('userSession', JSON.stringify(sessionData));
-    
+
     // Also save to a cookie as fallback for extreme cases
     const expires = new Date(Date.now() + (8 * 60 * 60 * 1000)).toUTCString();
     document.cookie = `userSession=${encodeURIComponent(JSON.stringify(sessionData))}; expires=${expires}; path=/; SameSite=Strict`;
@@ -113,12 +113,12 @@ function getUserSession() {
     if (savedUser) {
         return JSON.parse(savedUser);
     }
-    
+
     // Try localStorage
     const sessionData = localStorage.getItem('userSession');
     if (sessionData) {
         const parsed = JSON.parse(sessionData);
-        
+
         // Check if session is still valid
         if (Date.now() < parsed.expiresAt) {
             // Restore to sessionStorage for faster access
@@ -129,7 +129,7 @@ function getUserSession() {
             localStorage.removeItem('userSession');
         }
     }
-    
+
     // Try cookie as last resort
     const cookies = document.cookie.split(';');
     const sessionCookie = cookies.find(cookie => cookie.trim().startsWith('userSession='));
@@ -149,7 +149,7 @@ function getUserSession() {
             console.error('Error parsing session cookie:', e);
         }
     }
-    
+
     return null;
 }
 
@@ -158,7 +158,7 @@ function clearUserSession() {
     sessionStorage.removeItem('currentUser');
     localStorage.removeItem('userSession');
     document.cookie = 'userSession=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-    
+
     // Also clear saved filters
     sessionStorage.removeItem('savedFilters');
     localStorage.removeItem('savedFilters');
@@ -171,7 +171,7 @@ function handlePageVisibility() {
             // Page is being hidden - save current state
             if (currentUser) {
                 saveUserSession(currentUser, userType);
-                
+
                 // Save current filters to localStorage as well
                 const filterData = sessionStorage.getItem('savedFilters');
                 if (filterData) {
@@ -200,7 +200,7 @@ function handleBeforeUnload() {
     window.addEventListener('beforeunload', function() {
         if (currentUser) {
             saveUserSession(currentUser, userType);
-            
+
             // Save current filters
             const filterData = sessionStorage.getItem('savedFilters');
             if (filterData) {
@@ -208,12 +208,12 @@ function handleBeforeUnload() {
             }
         }
     });
-    
+
     // Also handle pagehide event which is more reliable on mobile
     window.addEventListener('pagehide', function() {
         if (currentUser) {
             saveUserSession(currentUser, userType);
-            
+
             const filterData = sessionStorage.getItem('savedFilters');
             if (filterData) {
                 localStorage.setItem('savedFilters', filterData);
@@ -232,13 +232,9 @@ function saveCurrentFiltersEnhanced() {
         selectedVenues,
         selectedTrainers,
         selectedReached,
-        // Track if secondary filters have been meaningfully applied
-        hasSecondaryFilters: (selectedVenues.length > 0 && selectedVenues.length < availableVenues.length) ||
-                           (selectedTrainers.length > 0 && selectedTrainers.length < availableTrainers.length) ||
-                           selectedReached.length < 2,
         expiresAt: Date.now() + (2 * 60 * 60 * 1000)
     };
-    
+
     // Save to both storages
     sessionStorage.setItem('savedFilters', JSON.stringify(filterData));
     localStorage.setItem('savedFilters', JSON.stringify(filterData));
@@ -247,7 +243,7 @@ function saveCurrentFiltersEnhanced() {
 // Enhanced filter restoration
 function restoreFiltersFromStorage() {
     let savedFilters = sessionStorage.getItem('savedFilters');
-    
+
     // If not in sessionStorage, try localStorage
     if (!savedFilters) {
         savedFilters = localStorage.getItem('savedFilters');
@@ -256,7 +252,7 @@ function restoreFiltersFromStorage() {
             sessionStorage.setItem('savedFilters', savedFilters);
         }
     }
-    
+
     return savedFilters;
 }
 
@@ -264,11 +260,11 @@ function restoreFiltersFromStorage() {
 document.addEventListener('DOMContentLoaded', function() {
     initializeEventListeners();
     hideMainContent();
-    
+
     // Set up page visibility and unload handlers
     handlePageVisibility();
     handleBeforeUnload();
-    
+
     // Check for existing session with enhanced method
     const savedUser = getUserSession();
     if (savedUser) {
@@ -276,7 +272,7 @@ document.addEventListener('DOMContentLoaded', function() {
         userType = getUserType(currentUser.id);
         coordinatorName.textContent = currentUser.name;
         coordinatorType.textContent = userType;
-        
+
         showMainContent();
         setupUserInterface();
     }
@@ -289,14 +285,14 @@ function initializeEventListeners() {
     coordinatorIdInput.addEventListener('keypress', function(e) {
         if (e.key === 'Enter') loginCoordinator();
     });
-    
+
     applyFilterBtn.addEventListener('click', applyPrimaryFilters);
     clearFilterBtn.addEventListener('click', clearAllFilters);
     applySecondaryFilterBtn.addEventListener('click', applySecondaryFiltersWithUpdate);
-    
+
     closeModalBtn.addEventListener('click', closeModal);
     toggleInstructionsBtn.addEventListener('click', toggleInstructions);
-    
+
     initializeFilterListeners();
 }
 
@@ -305,15 +301,15 @@ function validateCoordinatorId(id) {
     if (!id || id.trim() === '') {
         return { valid: false, message: 'Please enter a Coordinator ID' };
     }
-    
+
     const trimmedId = id.replace(/\s+/g, '').toUpperCase();
     const patterns = [/^FACE\d{2}$/, /^SP\d{2}$/, /^LND\d{2}$/];
     const isValid = patterns.some(pattern => pattern.test(trimmedId));
-    
+
     if (!isValid) {
         return { valid: false, message: 'Invalid Coordinator ID' };
     }
-    
+
     return { valid: true, value: trimmedId };
 }
 
@@ -335,32 +331,32 @@ function getTrainingPartnerForUser(userType) {
 
 async function loginCoordinator() {
     const coordinatorIdResult = validateCoordinatorId(coordinatorIdInput.value);
-    
+
     if (!coordinatorIdResult.valid) {
         showError(coordinatorIdResult.message);
         return;
     }
-    
+
     try {
         showLoading('Logging in...');
-        
+
         currentUser = {
             id: coordinatorIdResult.value,
             name: `Coordinator ${coordinatorIdResult.value}`
         };
-        
+
         userType = getUserType(currentUser.id);
-        
+
         // Enhanced session saving
         saveUserSession(currentUser, userType);
-        
+
         coordinatorName.textContent = currentUser.name;
         coordinatorType.textContent = userType;
-        
+
         showMainContent();
         setupUserInterface();
         hideLoading();
-        
+
     } catch (error) {
         hideLoading();
         showError(error.message || 'Login failed. Please try again.');
@@ -372,16 +368,16 @@ function logout() {
     clearUserSession();
     sessionStorage.removeItem('instructionsHidden');
     sessionStorage.removeItem('filtersHidden');
-    
+
     // Reset state
     currentUser = null;
     userType = null;
-    
+
     clearAllFilters();
     clearLoginForm();
     hideMainContent();
     loginContainer.style.display = 'block';
-    
+
     // Cleanup
     if (realtimeSubscription) {
         realtimeSubscription.unsubscribe();
@@ -392,7 +388,7 @@ function logout() {
     if (toggleButton) {
         toggleButton.remove();
     }
-    
+
     // Clear data arrays
     allSessionData = [];
     filteredSessionData = [];
@@ -446,6 +442,13 @@ function createToggleButton() {
     const secondaryFilterSection = document.querySelector('.secondary-filter-section');
     const sessionTableContainer = document.querySelector('.session-table-container');
 
+    if (!document.getElementById('toggleFilters')) {
+        const toggleButton = document.createElement('button');
+        toggleButton.id = 'toggleFilters';
+        toggleButton.className = 'toggle-filters-btn';
+        toggleButton.innerHTML = '<i class="fas fa-filter"></i> Hide Filters';
+        
+        filterSection.parentNode.insertBefore(toggleButton, filterSection);
     // Remove existing button if it exists
     const existingButton = document.getElementById('toggleFilters');
     if (existingButton) {
@@ -487,14 +490,32 @@ function createToggleButton() {
     
     toggleButton.addEventListener('click', function() {
         const isHidden = filterSection.style.display === 'none';
-        
+
+        toggleButton.addEventListener('click', function() {
+            const isHidden = filterSection.style.display === 'none';
         if (isHidden) {
             filterSection.style.display = 'block';
-            
+
+            if (isHidden) {
+                filterSection.style.display = 'block';
+                
+                const hasLoadedData = allSessionData && allSessionData.length > 0;
+                if (hasLoadedData) {
+                    secondaryFilterSection.style.display = 'block';
+                }
+                
+                this.innerHTML = '<i class="fas fa-filter"></i> Hide Filters';
+                sessionStorage.setItem('filtersHidden', 'false');
+            } else {
+                filterSection.style.display = 'none';
+                secondaryFilterSection.style.display = 'none';
+                this.innerHTML = '<i class="fas fa-filter"></i> Show Filters';
+                sessionStorage.setItem('filtersHidden', 'true');
             const hasLoadedData = allSessionData && allSessionData.length > 0;
             if (hasLoadedData) {
                 secondaryFilterSection.style.display = 'block';
             }
+        });
             
             this.innerHTML = '<i class="fas fa-filter"></i> Hide Filters';
             sessionStorage.setItem('filtersHidden', 'false');
@@ -528,11 +549,15 @@ function setupUserInterface() {
         selectedPartners = [...availablePartners];
     }
 
+    // Create toggle button
+    createToggleButton();
     // DON'T create toggle button here - wait until after data is loaded
     // createToggleButton(); // REMOVED
-    
+
+    // FIXED: Apply UI states IMMEDIATELY before any async operations
     applyStoredUIStates();
 
+    // Load initial options and handle saved filters
     loadInitialFilterOptions().then(() => {
         handleSavedFilters();
     });
@@ -549,19 +574,24 @@ function applyStoredUIStates() {
         instructionsContent.classList.remove('hidden');
         toggleInstructionsBtn.innerHTML = 'Hide <i class="fas fa-chevron-up"></i>';
     }
-    
+
+    // Filter visibility state
     // Filter visibility state - handle without requiring toggle button to exist
     const filtersHidden = sessionStorage.getItem('filtersHidden');
+    const toggleButton = document.getElementById('toggleFilters');
     const filterSection = document.querySelector('.filter-section');
     const secondaryFilterSection = document.querySelector('.secondary-filter-section');
-    
+
     // Check if saved filters exist to determine if secondary filters should be shown
     const hasSavedFilters = restoreFiltersFromStorage();
-    
+
+    if (filtersHidden === 'true' && toggleButton) {
     if (filtersHidden === 'true') {
         // Hide filters immediately
         filterSection.style.display = 'none';
         secondaryFilterSection.style.display = 'none';
+        toggleButton.innerHTML = '<i class="fas fa-filter"></i> Show Filters';
+    } else if (filtersHidden === 'false' && toggleButton && hasSavedFilters) {
         
         // Store the button state to apply later when button is created
         sessionStorage.setItem('pendingToggleButtonState', 'Show Filters');
@@ -569,6 +599,7 @@ function applyStoredUIStates() {
         // Show primary filters
         filterSection.style.display = 'block';
         // Don't show secondary filters yet - let the data loading process handle it
+        toggleButton.innerHTML = '<i class="fas fa-filter"></i> Hide Filters';
         
         // Store the button state to apply later when button is created
         sessionStorage.setItem('pendingToggleButtonState', 'Hide Filters');
@@ -579,72 +610,65 @@ function applyStoredUIStates() {
 function handleSavedFilters() {
     const savedFilters = restoreFiltersFromStorage();
     if (!savedFilters) return;
-    
+
     const filterData = JSON.parse(savedFilters);
-    
+
     // Check expiry
     if (Date.now() >= filterData.expiresAt) {
         sessionStorage.removeItem('savedFilters');
         localStorage.removeItem('savedFilters');
         return;
     }
-    
+
     // Restore filter selections
-    selectedPartners = filterData.selectedPartners || selectedPartners;
-    selectedDates = filterData.selectedDates || selectedDates;
-    selectedSessions = filterData.selectedSessions || selectedSessions;
-    selectedBlocks = filterData.selectedBlocks || selectedBlocks;
-    
-    // NEW: Only restore secondary filters if they exist and are meaningful
-    if (filterData.hasSecondaryFilters) {
-        selectedVenues = filterData.selectedVenues || [];
-        selectedTrainers = filterData.selectedTrainers || [];
-        selectedReached = filterData.selectedReached || ['Yes', 'No'];
-    }
-    
+    selectedPartners = filterData.selectedPartners;
+    selectedDates = filterData.selectedDates;
+    selectedSessions = filterData.selectedSessions;
+    selectedBlocks = filterData.selectedBlocks;
+    selectedVenues = filterData.selectedVenues || [];
+    selectedTrainers = filterData.selectedTrainers || [];
+    selectedReached = filterData.selectedReached || ['Yes', 'No'];
+
     // Restore UI and apply filters
     restorePrimaryFilterUI();
-    
-    // Apply primary filters and THEN handle secondary filters
+
+    // Apply filters with a small delay to ensure UI is ready
     setTimeout(() => {
         applyPrimaryFilters().then(() => {
-            // Only restore and apply secondary filters if they were previously saved with selections
-            if (filterData.hasSecondaryFilters) {
-                // Wait a bit more for secondary filter options to be populated
-                setTimeout(() => {
-                    restoreSecondaryFilterUI();
-                    applySecondaryFilters();
-                }, 200);
+            if (selectedVenues.length > 0 || selectedTrainers.length > 0 || selectedReached.length < 2) {
+                restoreSecondaryFilterUI();
+                applySecondaryFilters();
             }
         });
     }, 100);
 }
+
 async function loadInitialFilterOptions() {
     try {
         showLoading('Loading filter options...');
-        
+
         let query = supabase
             .from('training_sessions')
             .select('date, block, training_partner');
-        
+
         if (userType !== 'LND') {
             const partnerFilter = getTrainingPartnerForUser(userType);
             query = query.eq('training_partner', partnerFilter);
         }
-        
+
         const { data, error } = await query;
-        
+
         if (error) throw error;
-        
+
         availableDates = [...new Set(data.map(item => item.date))].sort();
         availableBlocks = [...new Set(data.map(item => item.block).filter(Boolean))].sort();
-        
+
         if (selectedDates.length === 0) selectedDates = [];
         if (selectedBlocks.length === 0) selectedBlocks = [];
-        
+
         populateFilterOptions();
         hideLoading();
-        
+
     } catch (error) {
         hideLoading();
         showError('Failed to load filter options: ' + error.message);
@@ -660,7 +684,7 @@ function populateFilterOptions() {
 
 function populatePartnerFilter() {
     if (userType !== 'LND') return;
-    
+
     partnerOptions.innerHTML = '';
     availablePartners.forEach(partner => {
         const isChecked = selectedPartners.includes(partner);
@@ -673,7 +697,7 @@ function populatePartnerFilter() {
         `;
         partnerOptions.appendChild(option);
     });
-    
+
     selectAllPartners.checked = selectedPartners.length === availablePartners.length;
 }
 
@@ -691,7 +715,7 @@ function populateDateFilter() {
         `;
         dateOptions.appendChild(option);
     });
-    
+
     selectAllDates.checked = selectedDates.length === availableDates.length;
 }
 
@@ -708,15 +732,25 @@ function populateBlockFilter() {
         `;
         blockOptions.appendChild(option);
     });
-    
+
     selectAllBlocks.checked = selectedBlocks.length === availableBlocks.length;
 }
 
 function populateVenueFilter() {
     venueOptions.innerHTML = '';
-    
-    // REMOVE cross-filtering logic - always show all available venues
-    availableVenues.forEach(venue => {
+
+    let filteredVenues = availableVenues;
+    if (selectedTrainers.length > 0 && selectedTrainers.length < availableTrainers.length) {
+        const venuesFromSelectedTrainers = [...new Set(
+            allSessionData
+                .filter(session => selectedTrainers.includes(session.name))
+                .map(session => session.venue)
+                .filter(Boolean)
+        )];
+        filteredVenues = availableVenues.filter(venue => venuesFromSelectedTrainers.includes(venue));
+    }
+
+    filteredVenues.forEach(venue => {
         const isChecked = selectedVenues.includes(venue);
         const option = document.createElement('div');
         option.className = 'multiselect-option';
@@ -727,18 +761,25 @@ function populateVenueFilter() {
         `;
         venueOptions.appendChild(option);
     });
-    
-    const allVenueCheckboxes = document.querySelectorAll('.venue-checkbox');
-    const checkedVenueCount = Array.from(allVenueCheckboxes).filter(cb => cb.checked).length;
-    selectAllVenues.checked = checkedVenueCount === allVenueCheckboxes.length && allVenueCheckboxes.length > 0;
-}
 
+    selectAllVenues.checked = selectedVenues.length === filteredVenues.length && filteredVenues.length > 0;
+}
 
 function populateTrainerFilter() {
     trainerOptions.innerHTML = '';
-    
-    // REMOVE cross-filtering logic - always show all available trainers
-    availableTrainers.forEach(trainer => {
+
+    let filteredTrainers = availableTrainers;
+    if (selectedVenues.length > 0 && selectedVenues.length < availableVenues.length) {
+        const trainersFromSelectedVenues = [...new Set(
+            allSessionData
+                .filter(session => selectedVenues.includes(session.venue))
+                .map(session => session.name)
+                .filter(Boolean)
+        )];
+        filteredTrainers = availableTrainers.filter(trainer => trainersFromSelectedVenues.includes(trainer));
+    }
+
+    filteredTrainers.forEach(trainer => {
         const isChecked = selectedTrainers.includes(trainer);
         const option = document.createElement('div');
         option.className = 'multiselect-option';
@@ -749,10 +790,8 @@ function populateTrainerFilter() {
         `;
         trainerOptions.appendChild(option);
     });
-    
-    const allTrainerCheckboxes = document.querySelectorAll('.trainer-checkbox');
-    const checkedTrainerCount = Array.from(allTrainerCheckboxes).filter(cb => cb.checked).length;
-    selectAllTrainers.checked = checkedTrainerCount === allTrainerCheckboxes.length && allTrainerCheckboxes.length > 0;
+
+    selectAllTrainers.checked = selectedTrainers.length === filteredTrainers.length && filteredTrainers.length > 0;
 }
 
 function restoreSecondaryFilterUI() {
@@ -764,7 +803,7 @@ function restoreSecondaryFilterUI() {
 
 function restorePrimaryFilterUI() {
     populateFilterOptions();
-    
+
     document.querySelectorAll('.session-checkbox').forEach(cb => {
         cb.checked = selectedSessions.includes(cb.value);
     });
@@ -772,10 +811,9 @@ function restorePrimaryFilterUI() {
 }
 
 function applySecondaryFiltersWithUpdate() {
-    // Apply the filters first
     applySecondaryFilters();
-    
-    // Then save the current state (this will mark hasSecondaryFilters as true)
+    populateVenueFilter();
+    populateTrainerFilter();
     saveCurrentFiltersEnhanced();
 }
 
@@ -824,27 +862,23 @@ document.addEventListener('change', function(e) {
         },
         'venue-checkbox': () => {
             updateSelectedArray(selectedVenues, e.target.value, e.target.checked);
-            
-            const visibleVenueCheckboxes = document.querySelectorAll('.venue-checkbox');
-            const checkedVenueCount = Array.from(visibleVenueCheckboxes).filter(cb => cb.checked).length;
-            selectAllVenues.checked = checkedVenueCount === visibleVenueCheckboxes.length && visibleVenueCheckboxes.length > 0;
-            
-            // REMOVED: No automatic filtering or saving - just update the selection
+            selectAllVenues.checked = selectedVenues.length === document.querySelectorAll('.venue-checkbox').length;
+            setTimeout(() => {
+                populateTrainerFilter();
+                saveCurrentFiltersEnhanced();
+            }, 100);
         },
         'trainer-checkbox': () => {
             updateSelectedArray(selectedTrainers, e.target.value, e.target.checked);
-            
-            const visibleTrainerCheckboxes = document.querySelectorAll('.trainer-checkbox');
-            const checkedTrainerCount = Array.from(visibleTrainerCheckboxes).filter(cb => cb.checked).length;
-            selectAllTrainers.checked = checkedTrainerCount === visibleTrainerCheckboxes.length && visibleTrainerCheckboxes.length > 0;
-            
-            // REMOVED: No automatic filtering or saving - just update the selection
+            selectAllTrainers.checked = selectedTrainers.length === document.querySelectorAll('.trainer-checkbox').length;
+            setTimeout(() => {
+                populateVenueFilter();
+                saveCurrentFiltersEnhanced();
+            }, 100);
         },
         'reached-checkbox': () => {
             updateSelectedArray(selectedReached, e.target.value, e.target.checked);
             selectAllReached.checked = selectedReached.length === availableReached.length;
-            
-            // REMOVED: No automatic filtering or saving - just update the selection
         }
     };
 
@@ -852,8 +886,7 @@ document.addEventListener('change', function(e) {
     const handler = Object.keys(handlers).find(key => e.target.classList.contains(key));
     if (handler) {
         handlers[handler]();
-        // Only save for primary filters (not secondary)
-        if (!handler.includes('venue') && !handler.includes('trainer') && !handler.includes('reached')) {
+        if (!handler.includes('venue') && !handler.includes('trainer')) {
             saveCurrentFiltersEnhanced();
         }
     }
@@ -883,144 +916,72 @@ async function applyPrimaryFilters() {
     if (selectedSessions.length === 0) {
         validationErrors.push('Please select at least one Session');
     }
-    
+
     if (validationErrors.length > 0) {
         showError(validationErrors[0]);
         return Promise.reject('Validation failed');
     }
-    
+
     try {
         showLoading('Loading session data...');
-        
+
         let query = supabase.from('training_sessions').select('*');
-        
+
         if (userType !== 'LND') {
             query = query.eq('training_partner', getTrainingPartnerForUser(userType));
         } else {
             query = query.in('training_partner', selectedPartners);
         }
-        
+
         query = query.in('date', selectedDates).in('session', selectedSessions);
-        
+
         if (selectedBlocks.length > 0) {
             query = query.in('block', selectedBlocks);
         }
-        
+
         const { data, error } = await query;
-        
+
         if (error) throw error;
+
         allSessionData = data || [];
-        
-        // Populate available options for secondary filters
+
         availableVenues = [...new Set(allSessionData.map(item => item.venue).filter(Boolean))].sort();
         availableTrainers = [...new Set(allSessionData.map(item => item.name).filter(Boolean))].sort();
-        
-        // NEW LOGIC: Check if this is a fresh apply (not from saved filters)
-        const isRestoringFromSavedFilters = checkIfRestoringFromSavedFilters();
-        
-        if (isRestoringFromSavedFilters) {
-            // Keep existing secondary filter selections from saved data
-            // (these are already set in handleSavedFilters)
-        } else {
-            // Fresh apply - select ALL secondary filters
-            selectedVenues = [...availableVenues];
-            selectedTrainers = [...availableTrainers];
-            selectedReached = ['Yes', 'No'];
-            
-            // Clear any existing secondary filter cache since this is a fresh apply
-            clearSecondaryFilterCache();
-        }
-        
+
+        selectedVenues = [...availableVenues];
+        selectedTrainers = [...availableTrainers];
+        selectedReached = ['Yes', 'No'];
+
+        populateVenueFilter();
+        populateTrainerFilter();
         updateSecondaryFilterUI();
-        
+
+        // Only show secondary filters if filters aren't supposed to be hidden
         // Show secondary filters first
         const filtersHidden = sessionStorage.getItem('filtersHidden');
         if (filtersHidden !== 'true') {
             secondaryFilters.style.display = 'block';
         }
         
-        // Wait for DOM to update, then create/show toggle button
+        // IMPORTANT: Wait for DOM to update, then create/show toggle button
         setTimeout(() => {
-            createToggleButton();
+            createToggleButton(); // Recreate button after secondary filters are shown
             showToggleButton();
         }, 100);
         
-        // IMPORTANT: Only apply secondary filters if restoring from saved state
-        // For fresh applies, just show the data without secondary filtering
-        if (isRestoringFromSavedFilters) {
-            applySecondaryFilters();
-        } else {
-            // Show all data initially (no secondary filtering)
-            filteredSessionData = [...allSessionData];
-            filteredSessionData.sort((a, b) => {
-                const venueA = (a.venue || '').toLowerCase();
-                const venueB = (b.venue || '').toLowerCase();
-                return venueA.localeCompare(venueB);
-            });
-            updateTable();
-            updateStats();
-            document.querySelectorAll('.session-table-container, .stats-grid')
-                .forEach(el => el.style.display = 'block');
-        }
-        
+        applySecondaryFilters();
+
+        // Save filters with enhanced method
         saveCurrentFiltersEnhanced();
+
         setupRealtimeSubscription();
         hideLoading();
         return Promise.resolve();
-        
+
     } catch (error) {
         hideLoading();
         showError('Failed to load data: ' + error.message);
         return Promise.reject(error);
-    }
-}
-
-function checkIfRestoringFromSavedFilters() {
-    const savedFilters = restoreFiltersFromStorage();
-    if (!savedFilters) return false;
-    
-    try {
-        const filterData = JSON.parse(savedFilters);
-        
-        // Check if current primary filters match saved primary filters exactly
-        const primaryFiltersMatch = 
-            JSON.stringify(selectedPartners.sort()) === JSON.stringify((filterData.selectedPartners || []).sort()) &&
-            JSON.stringify(selectedDates.sort()) === JSON.stringify((filterData.selectedDates || []).sort()) &&
-            JSON.stringify(selectedSessions.sort()) === JSON.stringify((filterData.selectedSessions || []).sort()) &&
-            JSON.stringify(selectedBlocks.sort()) === JSON.stringify((filterData.selectedBlocks || []).sort());
-        
-        return primaryFiltersMatch;
-    } catch (error) {
-        return false;
-    }
-}
-
-function clearSecondaryFilterCache() {
-    const savedFilters = restoreFiltersFromStorage();
-    if (savedFilters) {
-        try {
-            const filterData = JSON.parse(savedFilters);
-            // Keep primary filters but clear secondary ones
-            const newFilterData = {
-                selectedPartners: filterData.selectedPartners,
-                selectedDates: filterData.selectedDates,
-                selectedSessions: filterData.selectedSessions,
-                selectedBlocks: filterData.selectedBlocks,
-                // Clear secondary filters
-                selectedVenues: [],
-                selectedTrainers: [],
-                selectedReached: ['Yes', 'No'],
-                hasSecondaryFilters: false,
-                expiresAt: filterData.expiresAt
-            };
-            
-            sessionStorage.setItem('savedFilters', JSON.stringify(newFilterData));
-            localStorage.setItem('savedFilters', JSON.stringify(newFilterData));
-        } catch (error) {
-            // If parsing fails, just remove the saved filters
-            sessionStorage.removeItem('savedFilters');
-            localStorage.removeItem('savedFilters');
-        }
     }
 }
 
@@ -1037,10 +998,10 @@ function applySecondaryFilters() {
         const venueB = (b.venue || '').toLowerCase();
         return venueA.localeCompare(venueB);
     });
-    
+
     updateTable();
     updateStats();
-    
+
     document.querySelectorAll('.session-table-container, .stats-grid')
         .forEach(el => el.style.display = 'block');
 }
@@ -1056,7 +1017,7 @@ function clearAllFilters() {
     selectedVenues = [];
     selectedTrainers = [];
     selectedReached = ['Yes', 'No'];
-    
+
     // Reset UI
     document.querySelectorAll('input[type="checkbox"]').forEach(cb => {
         const checkboxTypes = {
@@ -1066,11 +1027,11 @@ function clearAllFilters() {
             'block-checkbox': selectedBlocks.includes(cb.value),
             'reached-checkbox': selectedReached.includes(cb.value)
         };
-        
+
         const matchingType = Object.keys(checkboxTypes).find(type => cb.classList.contains(type));
         cb.checked = matchingType ? checkboxTypes[matchingType] : false;
     });
-    
+
     // Update select all checkboxes
     selectAllPartners.checked = selectedPartners.length === availablePartners.length;
     selectAllDates.checked = selectedDates.length === availableDates.length;
@@ -1079,13 +1040,17 @@ function clearAllFilters() {
     selectAllBlocks.checked = selectedBlocks.length === availableBlocks.length;
     selectAllVenues.checked = false;
     selectAllTrainers.checked = false;
-    
+
+    // Show filters and update toggle button
     // Hide the toggle button when clearing filters
     const toggleButton = document.getElementById('toggleFilters');
     if (toggleButton) {
+        toggleButton.innerHTML = '<i class="fas fa-filter"></i> Hide Filters';
+        document.querySelector('.filter-section').style.display = 'block';
+        sessionStorage.setItem('filtersHidden', 'false');
         toggleButton.style.display = 'none';
     }
-    
+
     // Show filters
     document.querySelector('.filter-section').style.display = 'block';
     sessionStorage.setItem('filtersHidden', 'false');
@@ -1094,7 +1059,7 @@ function clearAllFilters() {
     secondaryFilters.style.display = 'none';
     document.querySelectorAll('.session-table-container, .stats-grid')
         .forEach(el => el.style.display = 'none');
-    
+
     // Clear data
     allSessionData = [];
     filteredSessionData = [];
@@ -1105,7 +1070,7 @@ function clearAllFilters() {
 
 function updateTable() {
     sessionTableBody.innerHTML = '';
-    
+
     // Show/hide training partner column based on user type
     const partnerColumn = document.getElementById('partnerColumn');
     if (userType === 'LND') {
@@ -1113,19 +1078,19 @@ function updateTable() {
     } else {
         partnerColumn.style.display = 'none';
     }
-    
+
     filteredSessionData.forEach(session => {
         const row = document.createElement('tr');
         if (session.reached === 'Yes') {
             row.className = 'reached';
         }
-        
+
         let rowHTML = `<td class="trainer-name">${session.name}</td>`;
-        
+
         if (userType === 'LND') {
             rowHTML += `<td class="training-partner">${session.training_partner}</td>`;
         }
-        
+
         rowHTML += `
             <td class="venue">${session.venue || 'N/A'}</td>
             <td class="phone-column">
@@ -1147,16 +1112,16 @@ function updateTable() {
                 </button>
             </td>
         `;
-        
+
         row.innerHTML = rowHTML;
         sessionTableBody.appendChild(row);
     });
-    
+
     // Add event listeners
     document.querySelectorAll('.reach-toggle').forEach(toggle => {
         toggle.addEventListener('change', updateReachedStatus);
     });
-    
+
     document.querySelectorAll('.details-btn').forEach(btn => {
         btn.addEventListener('click', showSessionDetails);
     });
@@ -1165,13 +1130,13 @@ function updateTable() {
 async function updateReachedStatus(e) {
     const sessionId = e.target.dataset.id;
     const reached = e.target.checked ? 'Yes' : 'No';
-    
+
     try {
         showLoading('Updating status...');
-        
+
         const istTime = new Date().toLocaleString("en-US", {timeZone: "Asia/Kolkata"});
         const istDate = new Date(istTime).toISOString();
-        
+
         const { error } = await supabase
             .from('training_sessions')
             .update({ 
@@ -1179,15 +1144,15 @@ async function updateReachedStatus(e) {
                 time_of_updation: istDate
             })
             .eq('id', sessionId);
-        
+
         if (error) throw error;
-        
+
         // Update local data
         const sessionIndex = filteredSessionData.findIndex(s => s.id.toString() === sessionId);
         if (sessionIndex !== -1) {
             filteredSessionData[sessionIndex].reached = reached;
             filteredSessionData[sessionIndex].time_of_updation = istDate;
-            
+
             const row = e.target.closest('tr');
             if (reached === 'Yes') {
                 row.classList.add('reached');
@@ -1195,10 +1160,10 @@ async function updateReachedStatus(e) {
                 row.classList.remove('reached');
             }
         }
-        
+
         updateStats();
         hideLoading();
-        
+
     } catch (error) {
         hideLoading();
         showError('Failed to update status: ' + error.message);
@@ -1209,12 +1174,12 @@ async function updateReachedStatus(e) {
 function showSessionDetails(e) {
     const sessionId = e.target.closest('button').dataset.id;
     const session = filteredSessionData.find(s => s.id.toString() === sessionId);
-    
+
     if (session) {
         const formattedDate = formatDateToDDMMMYYYY(session.date);
         const updatedTime = session.time_of_updation ? 
             new Date(session.time_of_updation).toLocaleString('en-GB') : 'Never';
-        
+
         sessionDetailsContent.innerHTML = `
             <div class="detail-item">
                 <span class="detail-label">Trainer Name:</span>
@@ -1261,7 +1226,7 @@ function showSessionDetails(e) {
                 <span class="detail-value">${updatedTime}</span>
             </div>
         `;
-        
+
         sessionDetailsModal.classList.remove('hidden');
     }
 }
@@ -1281,7 +1246,7 @@ function updateStats() {
     const totalSessions = filteredSessionData.length;
     const sessionsReached = filteredSessionData.filter(session => session.reached === 'Yes').length;
     const sessionsYetToReach = totalSessions - sessionsReached;
-    
+
     totalTrainersEl.textContent = totalSessions;
     trainersReachedEl.textContent = sessionsReached;
     trainersYetToReachEl.textContent = sessionsYetToReach;
@@ -1289,7 +1254,7 @@ function updateStats() {
 
 function toggleInstructions() {
     instructionsContent.classList.toggle('hidden');
-    
+
     if (instructionsContent.classList.contains('hidden')) {
         toggleInstructionsBtn.innerHTML = 'Show <i class="fas fa-chevron-down"></i>';
         sessionStorage.setItem('instructionsHidden', 'true');
@@ -1303,7 +1268,7 @@ function setupRealtimeSubscription() {
     if (realtimeSubscription) {
         realtimeSubscription.unsubscribe();
     }
-    
+
     realtimeSubscription = supabase
         .channel('training_sessions_changes')
         .on('postgres_changes', {
@@ -1312,7 +1277,7 @@ function setupRealtimeSubscription() {
             table: 'training_sessions'
         }, (payload) => {
             const updatedSession = payload.new;
-            
+
             const sessionIndex = filteredSessionData.findIndex(s => s.id === updatedSession.id);
             if (sessionIndex !== -1) {
                 filteredSessionData[sessionIndex] = updatedSession;
@@ -1328,14 +1293,14 @@ function updateTableRow(session) {
     if (toggleElement) {
         const wasChecked = toggleElement.checked;
         toggleElement.checked = session.reached === 'Yes';
-        
+
         const row = toggleElement.closest('tr');
         if (session.reached === 'Yes') {
             row.classList.add('reached');
         } else {
             row.classList.remove('reached');
         }
-        
+
         if (wasChecked !== toggleElement.checked) {
             showBriefNotification(`${session.name} status updated by another user`);
         }
@@ -1357,49 +1322,28 @@ function showBriefNotification(message) {
     `;
     notification.textContent = message;
     document.body.appendChild(notification);
-    
+
     setTimeout(() => {
         notification.remove();
     }, 3000);
 }
 
 function updateSecondaryFilterUI() {
-    // DON'T automatically check all - use actual selected arrays
-    populateVenueFilter();
-    populateTrainerFilter();
-    
-    // Update reached filter UI based on actual selection
-    document.querySelectorAll('.reached-checkbox').forEach(cb => {
-        cb.checked = selectedReached.includes(cb.value);
-    });
-    selectAllReached.checked = selectedReached.length === availableReached.length;
-}
-
-
-function restoreSecondaryFilterUI() {
-    // Restore venue checkboxes
+    // Update venue filter UI
+    selectAllVenues.checked = true;
     document.querySelectorAll('.venue-checkbox').forEach(cb => {
-        cb.checked = selectedVenues.includes(cb.value);
+        cb.checked = true;
     });
-    
-    // Update venue select all checkbox
-    const visibleVenueCheckboxes = document.querySelectorAll('.venue-checkbox');
-    const checkedVenueCount = document.querySelectorAll('.venue-checkbox:checked').length;
-    selectAllVenues.checked = checkedVenueCount === visibleVenueCheckboxes.length && visibleVenueCheckboxes.length > 0;
-    
-    // Restore trainer checkboxes
+
+    // Update trainer filter UI  
+    selectAllTrainers.checked = true;
     document.querySelectorAll('.trainer-checkbox').forEach(cb => {
-        cb.checked = selectedTrainers.includes(cb.value);
+        cb.checked = true;
     });
-    
-    // Update trainer select all checkbox
-    const visibleTrainerCheckboxes = document.querySelectorAll('.trainer-checkbox');
-    const checkedTrainerCount = document.querySelectorAll('.trainer-checkbox:checked').length;
-    selectAllTrainers.checked = checkedTrainerCount === visibleTrainerCheckboxes.length && visibleTrainerCheckboxes.length > 0;
-    
-    // Restore reached checkboxes
+
+    // Update reached filter UI
+    selectAllReached.checked = true;
     document.querySelectorAll('.reached-checkbox').forEach(cb => {
-        cb.checked = selectedReached.includes(cb.value);
+        cb.checked = true;
     });
-    selectAllReached.checked = selectedReached.length === availableReached.length;
 }
