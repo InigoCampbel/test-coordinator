@@ -449,7 +449,8 @@ function createToggleButton() {
         toggleButton.style.display = 'none'; // Initially hidden
         
         // Insert the toggle button after the secondary filter section
-        secondaryFilterSection.parentNode.insertBefore(toggleButton, secondaryFilterSection.nextSibling);
+        const dashboardContainer = document.getElementById('dashboardContainer');
+        dashboardContainer.insertBefore(toggleButton, document.querySelector('.session-table-container'));
         
         toggleButton.addEventListener('click', function() {
             const isHidden = filterSection.style.display === 'none';
