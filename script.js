@@ -447,7 +447,7 @@ function createToggleButton() {
         toggleButton.className = 'toggle-filters-btn';
         toggleButton.innerHTML = '<i class="fas fa-filter"></i> Hide Filters';
         
-        filterSection.parentNode.insertBefore(toggleButton, filterSection);
+        secondaryFilterSection.parentNode.insertBefore(toggleButton, secondaryFilterSection.nextSibling);
         
         toggleButton.addEventListener('click', function() {
             const isHidden = filterSection.style.display === 'none';
